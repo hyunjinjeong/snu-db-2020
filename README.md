@@ -31,5 +31,5 @@ To generate parser files, open the **.jj file** and select the `Compile with jav
 To run the **.jar file** that has been exported by Eclipse, put the following line:
 
 ```shell
-javaw -jar FILE_NAME.jar
+java -jar FILE_NAME.jar
 ```
