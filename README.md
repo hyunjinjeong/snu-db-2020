@@ -4,7 +4,7 @@ The goal of the term project is to make a simple DBMS that can execute basic fuc
 
 The project consists of three subprojects from 1-1 to 1-3.
 
-There are documents about the projects in the [docs/](https://github.com/hyunjinjeong/snu-db-2020/tree/master/docs) folder.
+There are project specification and reports in [specs/](https://github.com/hyunjinjeong/snu-db-2020/tree/master/specs) and [reports](https://github.com/hyunjinjeong/snu-db-2020/tree/master/reports).
 
 ## Project 1-1: SQL Parser
 
