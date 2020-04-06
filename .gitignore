@@ -16,3 +16,6 @@ src/main/java/kr/ac/snu/ids/PRJ1_1_2013_11431/SimpleDBMSParserConstants.java
 src/main/java/kr/ac/snu/ids/PRJ1_1_2013_11431/SimpleDBMSParserTokenManager.java
 src/main/java/kr/ac/snu/ids/PRJ1_1_2013_11431/Token.java
 src/main/java/kr/ac/snu/ids/PRJ1_1_2013_11431/TokenMgrError.java
+
+# For submitting project files
+submit/
