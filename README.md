@@ -4,7 +4,7 @@ The goal of the term project is to make a simple DBMS that can execute basic fuc
 
 The project consists of three subprojects from 1-1 to 1-3.
 
-There are project specification and reports in [specs/](https://github.com/hyunjinjeong/snu-db-2020/tree/master/specs) and [reports](https://github.com/hyunjinjeong/snu-db-2020/tree/master/reports).
+There are project specification and reports in [specs/](https://github.com/hyunjinjeong/snu-db-2020/tree/master/specs) and [reports/](https://github.com/hyunjinjeong/snu-db-2020/tree/master/reports).
 
 ## Project 1-1: SQL Parser
 
@@ -20,9 +20,9 @@ Based on Project 1-1 and 1-2, implement functions that directly handle data, e.g
 
 ## Environment and Versions
 
-* `IDE`: Eclipse 2020-03
-* `Java`: JAVA 14
-* `JavaCC Eclipse Plug-in`: 1.5.33
+- `IDE`: Eclipse 2020-03
+- `Java`: JAVA 14
+- `JavaCC Eclipse Plug-in`: 1.5.33
 
 ## How to Use
 

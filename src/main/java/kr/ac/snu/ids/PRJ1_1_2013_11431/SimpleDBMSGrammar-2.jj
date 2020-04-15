@@ -165,8 +165,11 @@ void command() :
 {
   queryList()
 | (
-    < EXIT >
-    < SEMICOLON >
+    (
+      < EXIT >
+      < SEMICOLON >
+    )
+  | < EOF >
   )
   {
     System.exit(0);
