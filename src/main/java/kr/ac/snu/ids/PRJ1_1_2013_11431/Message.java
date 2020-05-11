@@ -9,39 +9,47 @@ public class Message {
   public static final int PRINT_INSERT = 5;
   public static final int PRINT_DELETE = 6;
   public static final int PRINT_SHOW_TABLES = 7;
+  
+  public static void print(String msg) {
+    System.out.println(msg);
+  }
+  
+  public static void print(int q) {
+    printMessage(q);
+  }
 
   public static void printPrompt()
   {
     System.out.print("DB_2013-11431> ");
   }
   
-  public static void printMessage(int q)
+  private static void printMessage(int q)
   {
     switch(q)
     {
       case PRINT_SYNTAX_ERROR:
-        System.out.println("Syntax error");
+        print("Syntax error");
         break;
       case PRINT_CREATE_TABLE:
-        System.out.println("'CREATE TABLE' requested");
+        print("'CREATE TABLE' requested");
         break;
       case PRINT_DROP_TABLE:
-        System.out.println("'DROP TABLE' requested");
+        print("'DROP TABLE' requested");
         break;
       case PRINT_DESC:
-        System.out.println("'DESC' requested");
+        print("'DESC' requested");
         break;
       case PRINT_SELECT:
-        System.out.println("'SELECT' requested");
+        print("'SELECT' requested");
         break;
       case PRINT_INSERT:
-        System.out.println("'INSERT' requested");
+        print("'INSERT' requested");
         break;
       case PRINT_DELETE:
-        System.out.println("'DELETE' requested");
+        print("'DELETE' requested");
         break;
       case PRINT_SHOW_TABLES:
-        System.out.println("'SHOW TABLES' requested");
+        print("'SHOW TABLES' requested");
         break;
     }
   }
