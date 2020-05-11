@@ -7,8 +7,10 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 
@@ -162,8 +164,12 @@ public class Schema {
   }
   
   public String getAllTableNames() {
+    String lines = "----------------";
+    String res = lines + "\n";
     String s[] = tables.keySet().toArray(new String[tables.keySet().size()]);
-    return String.join("\n", s);
+    res += String.join("\n", s) + "\n";
+    res += lines;
+    return res;
   }
   
   public Table getTable(String name) {
@@ -175,5 +181,17 @@ public class Schema {
   
   public boolean tableExists(String name) {
     return tables.containsKey(name);
-  } 
+  }
+  
+  public boolean isValidForeignKeys(ArrayList<Column> referencedList, Table t) {
+    for (Column c: referencedList) {
+      if (!(t.primaryKeyExists(c))) {
+        return false;
+      }
+    }
+    if (referencedList.size() != t.getPrimaryKeys().size()) {
+      return false;
+    }
+    return true;
+  }
 }

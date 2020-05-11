@@ -1,10 +1,16 @@
 package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.HashSet;
 
 public class Column implements Serializable {
   private static final long serialVersionUID = 1L;
+  
+  public static final String IntType = "int";
+  public static final String CharType = "char";
+  public static final String DateType = "date";
   
   private String name;
   private String type;
@@ -14,13 +20,13 @@ public class Column implements Serializable {
   private String tableName;
   private HashSet<Column> referencingColumns;
   
-  public Column(String name) {
+  public Column(String name, String tableName) {
     this.name = name;
     this.type = null;
     this.isPrimary = false;
     this.isForeign = false;
     this.isNotNull = false;
-    this.tableName = null;
+    this.tableName = tableName;
     this.referencingColumns = new HashSet<Column>();
   }
   
@@ -38,6 +44,16 @@ public class Column implements Serializable {
   
   public String getType() {
     return this.type;
+  }
+  
+  // Int, Date
+  public static String typeToAssign(String type) {
+    return type;
+  }
+  
+  // Char
+  public static String typeToAssign(String type, int length) {
+    return type + "(" + Integer.toString(length) + ")";
   }
   
   public void setType(String type) {
@@ -70,10 +86,33 @@ public class Column implements Serializable {
   }
   
   @Override
+  public String toString() {
+    String nullable = "Y";
+    String constraints = "";
+    
+    if (this.isNotNull) {
+      nullable = "N";
+    }
+    
+    if (this.isPrimary && this.isForeign) {
+      constraints = "PRI/FOR";
+    }
+    else if (this.isForeign) {
+      constraints = "FOR";
+    }
+    else if (this.isPrimary){
+      constraints = "PRI";
+    }
+    
+    String format = "%-25.25s" + " " + "%-20.20s" + " " + "%-10.10s" + " " + "%-10.10s";
+    return String.format(format, this.name, this.type, nullable, constraints);
+  }
+  
+  @Override
   public boolean equals(Object obj) {
     if(obj instanceof Column) {
       Column c = (Column) obj;
-      return c.getTableName().equals(this.tableName) && c.getName().equals(this.name);
+      return c.getName().equals(this.name) && c.getTableName().equals(this.tableName);
     }
     else {
       return false;
@@ -82,6 +121,6 @@ public class Column implements Serializable {
   
   @Override
   public int hashCode() {  
-    return this.tableName.hashCode() + this.name.hashCode();
+    return this.name.hashCode() + this.tableName.hashCode();
   }
 }

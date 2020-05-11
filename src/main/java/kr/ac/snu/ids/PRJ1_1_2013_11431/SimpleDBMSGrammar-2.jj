@@ -8,6 +8,7 @@ package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
 import java.io.UnsupportedEncodingException;
 import java.io.File;
+import java.util.ArrayList;
 
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseException;
@@ -270,97 +271,200 @@ void createTableQuery() :
     }
     table = new Table(name);
   }
-  tableElementList()
+  tableElementList(table)
   {
     schema.createTable(table);
   }
 }
 
-void tableElementList() :
+void tableElementList(Table t) :
 {}
 {
   < LEFT_PAREN >
-  tableElement()
+  tableElement(t)
   (
     < COMMA >
-    tableElement()
+    tableElement(t)
   )*
   < RIGHT_PAREN >
 }
 
-void tableElement() :
+void tableElement(Table t) :
 {}
 {
-  columnDefinition()
-| tableConstraintDefinition()
+  columnDefinition(t)
+| tableConstraintDefinition(t)
 }
 
-void columnDefinition() :
-{}
+void columnDefinition(Table t) :
 {
-  columnName()
-  dataType()
+  String name;
+  String type;
+  Column c;
+}
+{
+  name = columnName()
+  {
+    if (t.columnExists(name)) {
+      throw new ParseException(Message.getMessage(Message.DUPLICATE_COLUMN_DEF_ERROR));
+    }
+    c = new Column(name, t.getName());
+    t.addColumn(c);
+  }
+  type = dataType()
+  {
+    c.setType(type);
+  }
   (
     < NOT >
     < NULL >
+    {
+      c.setNotNull();
+    }
   )?
 }
 
-void tableConstraintDefinition() :
+void tableConstraintDefinition(Table t) :
 {}
 {
-  primaryKeyConstraint()
-| referentialConstraint()
+  primaryKeyConstraint(t)
+| referentialConstraint(t)
 }
 
-void primaryKeyConstraint() :
-{}
+void primaryKeyConstraint(Table t) :
+{
+  ArrayList<String> columnNameList;
+}
 {
   < PRIMARY >
   < KEY >
-  columnNameList()
+  columnNameList = columnNameList()
+  {
+    for (String columnName: columnNameList) {
+      if (!(t.columnExists(columnName))) {
+        throw new ParseException(Message.getMessage(Message.NON_EXISTING_COLUMN_ERROR, columnName)); 
+      }
+      Column c = t.getColumn(columnName);
+      if (t.primaryKeyExists(c)) {
+        throw new ParseException(Message.getMessage(Message.DUPLICATE_PRIMARY_KEY_ERROR));
+      }
+      t.addPrimaryKey(c);
+    }
+  }
 }
 
-void referentialConstraint() :
-{}
+void referentialConstraint(Table t) :
+{
+  ArrayList<String> referencing;
+  ArrayList<String> referenced;
+  String tableName;
+}
 {
   < FOREIGN >
   < KEY >
-  columnNameList()
+  referencing = columnNameList()
+  {
+    ArrayList<Column> referencingList = new ArrayList<Column>();
+    for (String columnName: referencing) {
+      if (!(t.columnExists(columnName))) {
+        throw new ParseException(Message.getMessage(Message.NON_EXISTING_COLUMN_ERROR, columnName)); 
+      }
+      referencingList.add(t.getColumn(columnName));
+    }
+  }
   < REFERENCES >
-  tableName()
-  columnNameList()
+  tableName = tableName()
+  {
+    if (!(schema.tableExists(tableName))) {
+      throw new ParseException(Message.getMessage(Message.REFERENCE_TABLE_EXISTENCE_ERROR));
+    }
+    Table referencedTable = schema.getTable(tableName);
+  }
+  referenced = columnNameList()
+  {
+    ArrayList<Column> referencedList = new ArrayList<Column>();
+    for (String columnName: referenced) {
+      if (!(referencedTable.columnExists(columnName))) {
+        throw new ParseException(Message.getMessage(Message.REFERENCE_COLUMN_EXISTENCE_ERROR)); 
+      }
+      referencedList.add(referencedTable.getColumn(columnName));
+    }
+    if (referencingList.size() != referencedList.size()) {
+      throw new ParseException(Message.getMessage(Message.REFERENCE_TYPE_ERROR));
+    }
+    
+    if (!(schema.isValidForeignKeys(referencedList, referencedTable))) {
+      throw new ParseException(Message.getMessage(Message.REFERENCE_NON_PRIMARY_KEY_ERROR));
+    }
+
+    
+  }
 }
 
-void columnNameList() :
-{}
+ArrayList<String> columnNameList() :
 {
+  String name;
+  ArrayList<String> columnList;
+}
+{
+  {
+    columnList = new ArrayList<String>();
+  }
   < LEFT_PAREN >
-  columnName()
+  name = columnName()
+  {
+    columnList.add(name);
+  }
   (
     < COMMA >
-    columnName()
+    name = columnName()
+    {
+      columnList.add(name);
+    }
   )*
   < RIGHT_PAREN >
+  {
+    return columnList;
+  }
 }
 
-void dataType() :
-{}
+String dataType() :
 {
-  < INT >
-| (
-    < CHAR >
-    < LEFT_PAREN >
-    < INT_VALUE >
-    < RIGHT_PAREN >
+  String type;
+  Token lengthToken;
+  int intLength;
+}
+{
+  (
+    < INT >
+    {
+      type = Column.typeToAssign(Column.IntType);
+    }
+  | (
+      < CHAR >
+      < LEFT_PAREN >
+      lengthToken = < INT_VALUE >
+      < RIGHT_PAREN >
+    )
+    {
+      intLength = Integer.parseInt(lengthToken.image);
+      if (intLength < 1) {
+        throw new ParseException(Message.getMessage(Message.CHAR_LENGTH_ERROR));
+      }
+      type = Column.typeToAssign(Column.CharType, intLength); 
+    }
+  | < DATE >
+    {
+      type = Column.typeToAssign(Column.DateType);
+    }
   )
-| < DATE >
+  {
+    return type;
+  }
 }
 
 String tableName() :
-{
-  String name;
-}
+{}
 {
   < LEGAL_IDENTIFIER >
   {
@@ -368,10 +472,13 @@ String tableName() :
   }
 }
 
-void columnName() :
+String columnName() :
 {}
 {
   < LEGAL_IDENTIFIER >
+  {
+    return token.image.toLowerCase();
+  }
 }
 /*
    CREATE TABLE END
