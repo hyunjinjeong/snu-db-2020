@@ -1,14 +1,26 @@
 options
 {
-  STATIC = true;
   IGNORE_CASE = true;
 }
 
 PARSER_BEGIN(SimpleDBMSParser)
 package kr.ac.snu.ids.PRJ1_1_2013_11431;
+import java.io.UnsupportedEncodingException;
+import java.io.File;
+
+import com.sleepycat.je.Database;
+import com.sleepycat.je.DatabaseException;
+import com.sleepycat.je.DatabaseConfig;
+import com.sleepycat.je.DatabaseEntry;
+import com.sleepycat.je.Cursor;
+import com.sleepycat.je.LockMode;
+import com.sleepycat.je.OperationStatus;
+import com.sleepycat.je.Environment;
+import com.sleepycat.je.EnvironmentConfig;
 
 public class SimpleDBMSParser
 {
+  // Constants to print messages.
   public static final int PRINT_SYNTAX_ERROR = 0;
   public static final int PRINT_CREATE_TABLE = 1;
   public static final int PRINT_DROP_TABLE = 2;
@@ -20,6 +32,68 @@ public class SimpleDBMSParser
     
   public static void main(String args[]) throws ParseException
   {
+    // Environment & Database define
+    Environment myDbEnvironment = null;
+    Database myDatabase = null;
+
+    /* Open DB */
+    // Open Database Environment or if not, create one.
+    EnvironmentConfig envConfig = new EnvironmentConfig();
+    envConfig.setAllowCreate(true);
+    myDbEnvironment = new Environment(new File("db/"), envConfig);
+
+    // Open Database or if not, create one.
+    DatabaseConfig dbConfig = new DatabaseConfig();
+    dbConfig.setAllowCreate(true);
+    dbConfig.setSortedDuplicates(true);
+    myDatabase = myDbEnvironment.openDatabase(null, "sampleDatabase", dbConfig);
+
+    Cursor cursor = null;
+    DatabaseEntry key;
+    DatabaseEntry value;
+
+    try {
+      cursor = myDatabase.openCursor(null, null);
+      key = new DatabaseEntry("key".getBytes("UTF-8"));
+      value = new DatabaseEntry("value".getBytes("UTF-8"));
+    }
+    catch (DatabaseException de) {
+    }
+    catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+    finally {
+      cursor.close();
+    }
+
+    // Find keys & values.
+    DatabaseEntry foundKey;
+    DatabaseEntry foundValue;
+    try {
+      cursor = myDatabase.openCursor(null, null);
+      foundKey = new DatabaseEntry("key".getBytes("UTF-8"));
+      foundValue = new DatabaseEntry("value".getBytes("UTF-8"));
+      cursor.getFirst(foundKey, foundValue, LockMode.DEFAULT);
+      do {
+        String keyString = new String(foundKey.getData(), "UTF-8");
+        String valueString = new String(foundValue.getData(), "UTF-8");
+        System.out.println(keyString);
+      } while (cursor.getNext(foundKey, foundValue, LockMode.DEFAULT) == OperationStatus.SUCCESS);
+    }
+    catch (DatabaseException de) {
+    }
+    catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+    finally {
+      cursor.close();
+    }
+
+    // Close DB
+    if (myDatabase != null) myDatabase.close();
+    if (myDbEnvironment != null) myDbEnvironment.close();
+    
+    // Project 1-1 Parser
     SimpleDBMSParser parser = new SimpleDBMSParser(System.in);
     printPrompt();
     
@@ -32,8 +106,8 @@ public class SimpleDBMSParser
       catch (Exception e)
       {
         printMessage(PRINT_SYNTAX_ERROR);
-        printPrompt();
         SimpleDBMSParser.ReInit(System.in);
+        printPrompt();
       }
     }
   }
@@ -78,7 +152,7 @@ public class SimpleDBMSParser
 PARSER_END(SimpleDBMSParser)
  
 
-SKIP : { " " | "\t" | "\n" | "\r" }
+SKIP : { < SPACE: " " > | <  TAB : "\t" > | < EOL : "\r\n" | "\n" | "\r" > }
 
 /*
    According to the JavaCC's FAQ page (https://javacc.github.io/javacc/faq.html#question-3.3),
@@ -135,12 +209,13 @@ TOKEN :
 */
 TOKEN :
 {
-  < SEMICOLON : ";" >
+  < END : < SEMICOLON > (< SPACE > | < TAB >)* < EOL > > 
+| < SEMICOLON : ";" >
+| < ASTERISK : "*" >
 | < LEFT_PAREN : "(">
 | < RIGHT_PAREN : ")">
 | < COMMA : ",">
 | < DOT : ".">
-| < ASTERISK : "*">
 | < INT_VALUE : (< SIGN >)? (< DIGIT >)+ >
 | < DATE_VALUE : < NNNN > "-" < NN > "-" < NN > >
 | < CHAR_STRING : < QUOTE > (< NON_QUOTE_CHARACTER >)* < QUOTE > >
@@ -157,6 +232,7 @@ TOKEN :
 | < #NON_QUOTE_SPECIAL_CHARACTERS : "!" | "@" | "#" | "$" | "%" | "^" | "&" | "-" | "{" | "}"
     | "[" | "]" | "~" | "`" | "+" | "*" | "_" | "=" | "\\" | "(" | ")" | "<" | ">" | "?" | "," | "."  
     | "\n" | "\t" | "\r" | ":" | ";" | "|" | "/" >
+| < UNEXPECTED: ~[] >
 }
 
 
@@ -167,7 +243,9 @@ void command() :
 | (
     (
       < EXIT >
-      < SEMICOLON >
+      (
+        < SEMICOLON > | < END >
+      )
     )
   | < EOF >
   )
@@ -183,10 +261,23 @@ void queryList() :
 {
   ( 
     q = query()
-    < SEMICOLON >
-    {
-      printMessage(q);
-    }
+    (
+      (
+        // When a query ends at the end.
+        < END >
+        {
+          printMessage(q);
+          printPrompt();
+        }
+      )
+    | (
+        // For query sequences. 
+        < SEMICOLON >
+        {
+          printMessage(q);
+        }
+      )
+    )
   )+
 }
 
