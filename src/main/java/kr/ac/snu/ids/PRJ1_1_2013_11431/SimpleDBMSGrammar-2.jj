@@ -5,6 +5,7 @@ options
 
 PARSER_BEGIN(SimpleDBMSParser)
 package kr.ac.snu.ids.PRJ1_1_2013_11431;
+
 import java.io.UnsupportedEncodingException;
 import java.io.File;
 
@@ -17,6 +18,8 @@ import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
+
+import kr.ac.snu.ids.PRJ1_1_2013_11431.Message;
 
 public class SimpleDBMSParser
 {
@@ -77,7 +80,7 @@ public class SimpleDBMSParser
       do {
         String keyString = new String(foundKey.getData(), "UTF-8");
         String valueString = new String(foundValue.getData(), "UTF-8");
-        System.out.println(keyString);
+//        System.out.println(keyString);
       } while (cursor.getNext(foundKey, foundValue, LockMode.DEFAULT) == OperationStatus.SUCCESS);
     }
     catch (DatabaseException de) {
@@ -95,7 +98,7 @@ public class SimpleDBMSParser
     
     // Project 1-1 Parser
     SimpleDBMSParser parser = new SimpleDBMSParser(System.in);
-    printPrompt();
+    Message.printPrompt();
     
     while (true)
     {
@@ -105,47 +108,11 @@ public class SimpleDBMSParser
       }
       catch (Exception e)
       {
-        printMessage(PRINT_SYNTAX_ERROR);
+        Message.printMessage(PRINT_SYNTAX_ERROR);
         SimpleDBMSParser.ReInit(System.in);
-        printPrompt();
+        Message.printPrompt();
       }
     }
-  }
-
-  public static void printMessage(int q)
-  {
-    switch(q)
-    {
-      case PRINT_SYNTAX_ERROR:
-      	System.out.println("Syntax error");
-      	break;
-      case PRINT_CREATE_TABLE:
-      	System.out.println("'CREATE TABLE' requested");
-      	break;
-      case PRINT_DROP_TABLE:
-      	System.out.println("'DROP TABLE' requested");
-      	break;
-      case PRINT_DESC:
-      	System.out.println("'DESC' requested");
-      	break;
-      case PRINT_SELECT:
-      	System.out.println("'SELECT' requested");
-      	break;
-      case PRINT_INSERT:
-      	System.out.println("'INSERT' requested");
-      	break;
-      case PRINT_DELETE:
-      	System.out.println("'DELETE' requested");
-      	break;
-      case PRINT_SHOW_TABLES:
-      	System.out.println("'SHOW TABLES' requested");
-      	break;
-    }
-  }
-
-  public static void printPrompt()
-  {
-    System.out.print("DB_2013-11431> ");
   }
 }
 
@@ -266,15 +233,15 @@ void queryList() :
         // When a query ends at the end.
         < END >
         {
-          printMessage(q);
-          printPrompt();
+          Message.printMessage(q);
+          Message.printPrompt();
         }
       )
     | (
         // For query sequences. 
         < SEMICOLON >
         {
-          printMessage(q);
+          Message.printMessage(q);
         }
       )
     )
@@ -289,31 +256,31 @@ int query() :
   (
     createTableQuery()
     {
-      q = PRINT_CREATE_TABLE;
+      q = Message.PRINT_CREATE_TABLE;
     }
   | dropTableQuery()
     {
-      q = PRINT_DROP_TABLE;
+      q = Message.PRINT_DROP_TABLE;
     }
   | descQuery()
     {
-      q = PRINT_DESC;
+      q = Message.PRINT_DESC;
     }
   | selectQuery()
     {
-      q = PRINT_SELECT;
+      q = Message.PRINT_SELECT;
     }
   | insertQuery()
     {
-      q = PRINT_INSERT;
+      q = Message.PRINT_INSERT;
     }
   | deleteQuery()
     {
-      q = PRINT_DELETE;
+      q = Message.PRINT_DELETE;
     } 
   | showTablesQuery()
     {
-      q = PRINT_SHOW_TABLES;
+      q = Message.PRINT_SHOW_TABLES;
     } 
   ) 
   (
