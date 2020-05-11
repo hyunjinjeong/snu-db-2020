@@ -21,14 +21,11 @@ import com.sleepycat.je.EnvironmentConfig;
 
 public class SimpleDBMSParser
 {
-  public static DatabaseEnvironment dbEnvironment;
+  private static Schema schema;
   
   public static void main(String args[]) throws ParseException
   {
-    // Setup and get the database.
-    dbEnvironment = new DatabaseEnvironment();
-    dbEnvironment.setup(new File("db/"));
-    Database db = dbEnvironment.getDatabase();
+    schema = new Schema();
     
     // Project 1-1 Parser
     SimpleDBMSParser parser = new SimpleDBMSParser(System.in);
@@ -40,9 +37,16 @@ public class SimpleDBMSParser
       {
         parser.command();
       }
-      catch (Exception e)
+      catch (ParseException e)
       {
-        Message.print(Message.PRINT_SYNTAX_ERROR);
+        String msg;
+        if (e.currentToken != null) {
+          msg = Message.getMessage(Message.SYNTAX_ERROR);
+        }
+        else {
+          msg = e.getMessage();
+        }
+        Message.print(msg);
         SimpleDBMSParser.ReInit(System.in);
         Message.printPrompt();
       }
@@ -152,24 +156,24 @@ void command() :
   )
   {
     // Close DB
-    dbEnvironment.close();
+    schema.closeDatabase();
     System.exit(0);
   }
 }
 
 void queryList() :
 {
-  int q;
+  String msg;
 }
 {
   ( 
-    q = query()
+    msg = query()
     (
       (
         // When a query ends at the end.
         < END >
         {
-          Message.print(q);
+          Message.print(msg);
           Message.printPrompt();
         }
       )
@@ -177,51 +181,73 @@ void queryList() :
         // For query sequences. 
         < SEMICOLON >
         {
-          Message.print(q);
+          Message.print(msg);
         }
       )
     )
   )+
 }
 
-int query() :
+String query() :
 {
-  int q;
+  String msg;
+  String tableName;
 }
 {
   (
     createTableQuery()
     {
-      q = Message.PRINT_CREATE_TABLE;
+      msg = Message.getMessage(Message.CREATE_TABLE);
     }
-  | dropTableQuery()
+  | tableName = dropTableQuery()
     {
-      q = Message.PRINT_DROP_TABLE;
+      if (!(schema.tableExists(tableName))) {
+        msg = Message.getMessage(Message.NO_SUCH_TABLE);
+      }
+      else {
+        Table table = schema.getTable(tableName);
+        if (table.isReferenced()) {
+          throw new ParseException(Message.getMessage(Message.DROP_REFERENCED_TABLE_ERROR, tableName));
+        }
+        schema.dropTable(table);
+        msg = Message.getMessage(Message.DROP_SUCCESS, tableName);
+      }
     }
-  | descQuery()
+  | tableName = descQuery()
     {
-      q = Message.PRINT_DESC;
+      if (!(schema.tableExists(tableName))) {
+        msg = Message.getMessage(Message.NO_SUCH_TABLE);
+      }
+      else { 
+        Table table = schema.getTable(tableName);
+        msg = table.toString();
+      }
     }
   | selectQuery()
     {
-      q = Message.PRINT_SELECT;
+      msg = Message.getMessage(Message.SELECT);
     }
   | insertQuery()
     {
-      q = Message.PRINT_INSERT;
+      msg = Message.getMessage(Message.INSERT);
     }
   | deleteQuery()
     {
-      q = Message.PRINT_DELETE;
+      msg = Message.getMessage(Message.DELETE);
     } 
   | showTablesQuery()
     {
-      q = Message.PRINT_SHOW_TABLES;
+      if (schema.isEmpty()) {
+        msg = Message.getMessage(Message.SHOW_TABLES_NO_TABLE);
+      }
+      else { 
+        msg = schema.getAllTableNames();
+      }
     } 
   ) 
   (
     {
-      return q;
+      return msg;
     }
   )
 }
@@ -230,12 +256,24 @@ int query() :
    CREATE TABLE START
 */
 void createTableQuery() :
-{}
+{
+  String name;
+  Table table;
+}
 {
   < CREATE >
   < TABLE >
-  tableName()
+  name = tableName()
+  {
+    if (schema.tableExists(name)) {
+      throw new ParseException(Message.getMessage(Message.TABLE_EXISTENCE_ERROR));
+    }
+    table = new Table(name);
+  }
   tableElementList()
+  {
+    schema.createTable(table);
+  }
 }
 
 void tableElementList() :
@@ -319,10 +357,15 @@ void dataType() :
 | < DATE >
 }
 
-void tableName() :
-{}
+String tableName() :
+{
+  String name;
+}
 {
   < LEGAL_IDENTIFIER >
+  {
+    return token.image.toLowerCase();
+  }
 }
 
 void columnName() :
@@ -337,19 +380,29 @@ void columnName() :
 /*
    DROP TABLE / DESC / SHOW TABLES START
 */
-void dropTableQuery() :
-{}
+String dropTableQuery() :
+{
+  String name;
+}
 {
   < DROP >
   < TABLE >
-  tableName()
+  name = tableName()
+  {
+    return name;
+  }
 }
 
-void descQuery() :
-{}
+String descQuery() :
+{
+  String name;
+}
 {
   < DESC >
-  tableName()
+  name = tableName()
+  {
+    return name;
+  }
 }
 
 void showTablesQuery() :
