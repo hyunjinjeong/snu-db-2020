@@ -19,8 +19,6 @@ Based on Project 1-1, implement functions to save and manage schemas.
 - DESC #name
 - SHOW TABLES
 
-The detailed information can be found in the [docs/](https://github.com/hyunjinjeong/snu-db-2020/blob/master/docs) folder.
-
 ## Project 1-3: Implmenting DML
 
 Based on Project 1-1 and 1-2, implement functions that directly handle data, e.g., insert, delete, and select.
