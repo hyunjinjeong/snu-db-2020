@@ -2,97 +2,101 @@ package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map.Entry;
-import java.util.TreeMap;
-import java.util.TreeSet;
 
 public class Table implements Serializable {
   private static final long serialVersionUID = 1L;
   
   private String name;
-  // The order of columns should be preserved. Therefore LinkedHashMap has been used.
+  private boolean isReferenced;
+  private boolean hasPrimaryKey;
+  // LinkedHashMap has been used in order to keep the order of columns.
   private LinkedHashMap<String, Column> columns;
-  private TreeSet<String> primaryKeys;
-  // colName -> (tableName, colName)
-  private TreeMap<String, Pair> foreignKeys;
-  // (tableName, colName) -> colName
-  private TreeMap<Pair, String> referencedBy;
   
-  public Table(String name) {
-    this.name = name;
+  public Table() {
+    this.name = null;
+    this.isReferenced = false;
+    this.hasPrimaryKey = false;
     this.columns = new LinkedHashMap<String, Column>();
-    this.primaryKeys = new TreeSet<String>();
-    this.foreignKeys = new TreeMap<String, Pair>();
-    this.referencedBy = new TreeMap<Pair, String>(); 
   }
   
-  public String getName() {
-    return this.name;
+  public String getName() { return this.name; }
+  public void setName(String name) { this.name = name; }
+  
+  public boolean isReferenced() { return this.isReferenced; }
+  public void setReferened() { this.isReferenced = true; }
+  public void setDereferenced() { this.isReferenced = false; }
+  // Check reference status after dropping tables.
+  public boolean stillHasReferences() {
+    for (Entry<String, Column> entry: columns.entrySet()) {
+      Column c = entry.getValue();
+      if (!c.getReferenced().isEmpty()) {
+        return true;
+      }
+    }
+    return false;
   }
   
-  public boolean columnExists(String name) {
-    return this.columns.containsKey(name);
-  }
-  
-  public boolean isReferenced() {
-    return !this.referencedBy.isEmpty();
-  }
-  
-  public void addColumn(Column c) {
-    this.columns.put(c.getName(), new Column(c));
-  }
   
   public Column getColumn(String name) {
-    if(this.columnExists(name)) {
+    if(this.columns.containsKey(name)) {
       return this.columns.get(name);
     }
     return null;
   }
   
-  public LinkedHashMap<String, Column> getAllColumns() {
-    return this.columns;
+  public LinkedHashMap<String, Column> getAllColumns() { return this.columns; }
+  
+  public void addColumn(Column c) { this.columns.put(c.getName(), c); }
+  
+  
+  public boolean hasPrimaryKey() { return this.hasPrimaryKey; }
+  
+  public HashSet<String> getPrimaryKeys() {
+    HashSet<String> primaryKeys = new HashSet<String>();
+    for (Entry<String, Column> entry: columns.entrySet()) {
+      if (entry.getValue().isPrimary()) {
+        primaryKeys.add(entry.getKey());
+      }
+    }
+    return primaryKeys;
   }
   
-  public TreeSet<String> getPrimaryKeys() {
-    return this.primaryKeys;
+  public void addPrimaryKeys(ArrayList<String> colNames) {
+    for (String name: colNames) {
+      Column c = this.columns.get(name);
+      c.setPrimary();
+    }
+    this.hasPrimaryKey = true;
   }
   
-  public boolean primaryKeyExists(String colName) {
-    return this.primaryKeys.contains(colName);
+  
+  public HashSet<Column> getForeignKeys() {
+    HashSet<Column> foreignKeys = new HashSet<Column>();
+    for (Entry<String, Column> entry: columns.entrySet()) {
+      if (entry.getValue().isForeign()) {
+        foreignKeys.add(entry.getValue());
+      }
+    }
+    return foreignKeys;
   }
   
-  public void addPrimaryKey(String colName) {
-    this.getColumn(colName).setPrimary();
-    this.primaryKeys.add(colName);
+  public void addForeignKeys(ArrayList<String> colNames, ArrayList<String> refedColNames, String refedTableName) {
+    Schema schema = Schema.getSchema();
+    Table refedTable = schema.getTable(refedTableName);
+    
+    for (int i = 0; i < colNames.size(); i++) {
+      Column refCol = this.columns.get(colNames.get(i));
+      Column refedCol = refedTable.getColumn(refedColNames.get(i));
+      refCol.setForeign(new ForeignKey(refedTableName, refedCol.getName()));
+      refedCol.addReferenced(new ForeignKey(this.name, refCol.getName()));
+    }
+    
+    refedTable.setReferened();
+    schema.addTable(refedTable);
   }
-  
-  public TreeMap<String, Pair> getForeignKeys() {
-    return this.foreignKeys;
-  }
-  
-  public void addForeignKey(String refColName, String refedTableName, String refedColName) {
-    this.foreignKeys.put(refColName, new Pair(refedTableName, refedColName));
-  }
-  
-  public TreeMap<Pair, String> getReferencedBy() {
-    return this.referencedBy;
-  }
-  
-  public void addReferencedBy(String refTableName, String refColName, String refedColName) {
-    this.referencedBy.put(new Pair(refTableName, refColName), refedColName);
-  }
-  
-  public void removeReferencedBy(String refTableName, String refColName) {
-    this.referencedBy.remove(new Pair(refTableName, refColName));
-  }
-  
-  /*
-   * Util Functions
-   */
   
   @Override
   public String toString() {

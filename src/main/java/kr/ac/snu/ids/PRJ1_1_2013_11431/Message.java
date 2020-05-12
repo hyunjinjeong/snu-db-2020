@@ -4,7 +4,6 @@ public class Message {
   public static final int SYNTAX_ERROR = 0;
   public static final int CREATE_TABLE_SUCCESS = 1;
   public static final int DROP_SUCCESS = 2;
-  public static final int DESC = 3;
   public static final int SELECT = 4;
   public static final int INSERT = 5;
   public static final int DELETE = 6;
@@ -40,8 +39,6 @@ public class Message {
     {
       case SYNTAX_ERROR:
         return "Syntax error";
-      case DESC:
-        return "'DESC' requested";
       case SELECT:
         return "'SELECT' requested";
       case INSERT:
@@ -73,6 +70,7 @@ public class Message {
     }
   }
   
+  // Messages that support a name variable.
   public static String getMessage(int q, String name) {
     switch(q)
     {

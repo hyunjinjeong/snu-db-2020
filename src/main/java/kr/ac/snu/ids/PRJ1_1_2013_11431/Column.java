@@ -1,10 +1,7 @@
 package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.HashSet;
-import java.util.TreeSet;
 
 public class Column implements Serializable {
   private static final long serialVersionUID = 1L;
@@ -23,11 +20,11 @@ public class Column implements Serializable {
   private boolean isPrimary;
   private boolean isForeign;
   private boolean isNotNull;
-  private referencing;
+  private ForeignKey referencing;
   private HashSet<ForeignKey> referenced;
   
-  public Column(String name) {
-    this.name = name;
+  public Column() {
+    this.name = null;
     this.type = null;
     this.isPrimary = false;
     this.isForeign = false;
@@ -38,28 +35,43 @@ public class Column implements Serializable {
   
   public String getName() { return this.name; }
   
+  public void setName(String name) { this.name = name; }
+  
+  
   public String getType() { return this.type; }
+  
   public void setType(String type) { this.type = type; }
   
+  
   public boolean isNotNull() { return this.isNotNull; }
+  
   public void setNotNull() { this.isNotNull = true; }
   
+  
   public boolean isPrimary() { return this.isPrimary; }
+  
   public void setPrimary() {
     this.setNotNull();
     this.isPrimary = true;
   }
   
+  
   public boolean isForeign() { return this.isForeign; }
+  
   public ForeignKey getReferencing() { return this.referencing; }
+  
   public void setForeign(ForeignKey key) {
-    this.referencing = new ForeignKey(key);
+    this.referencing = new ForeignKey(key.getTableName(), key.getColName());
     this.isForeign = true;
   }
   
-  public HashSet<ForeignKey> getReferenced() {
-    return this.referenced;
-  }
+  
+  public HashSet<ForeignKey> getReferenced() { return this.referenced; }
+  
+  public void addReferenced(ForeignKey key) { this.referenced.add(key); }
+  
+  public void removeReferenced(ForeignKey key) { this.referenced.remove(key); }
+  
   
   @Override
   public String toString() {
@@ -82,21 +94,5 @@ public class Column implements Serializable {
     
     String format = "%-25.25s" + " " + "%-20.20s" + " " + "%-10.10s" + " " + "%-10.10s";
     return String.format(format, this.name, this.type, nullable, constraints);
-  }
-  
-  @Override
-  public boolean equals(Object obj) {
-    if(obj instanceof Column) {
-      Column c = (Column) obj;
-      return c.getName().equals(this.name) && c.getType().equals(this.type);
-    }
-    else {
-      return false;
-    }
-  }
-  
-  @Override
-  public int hashCode() {
-    return this.name.hashCode() + this.type.hashCode();
   }
 }
