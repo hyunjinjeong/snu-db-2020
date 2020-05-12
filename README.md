@@ -12,7 +12,14 @@ The first project is to implement a simple SQL parser by using [JavaCC](https://
 
 ## Project 1-2: Implementing DDL
 
-Based on Project 1-1, implement functions to save and manage schemas, for example, create table, drop table, and so on.
+Based on Project 1-1, implement functions to save and manage schemas.
+
+- CREATE TABLE
+- DROP TABLE #name
+- DESC #name
+- SHOW TABLES
+
+The detailed information can be found in the [docs/](https://github.com/hyunjinjeong/snu-db-2020/blob/master/docs) folder.
 
 ## Project 1-3: Implmenting DML
 
