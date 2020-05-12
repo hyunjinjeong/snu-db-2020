@@ -2,7 +2,7 @@ package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
 public class Message {
   public static final int SYNTAX_ERROR = 0;
-  public static final int CREATE_TABLE = 1;
+  public static final int CREATE_TABLE_SUCCESS = 1;
   public static final int DROP_SUCCESS = 2;
   public static final int DESC = 3;
   public static final int SELECT = 4;
@@ -40,8 +40,6 @@ public class Message {
     {
       case SYNTAX_ERROR:
         return "Syntax error";
-      case CREATE_TABLE:
-        return "'CREATE TABLE' requested";
       case DESC:
         return "'DESC' requested";
       case SELECT:
@@ -78,8 +76,10 @@ public class Message {
   public static String getMessage(int q, String name) {
     switch(q)
     {
+      case CREATE_TABLE_SUCCESS:
+        return "[" + name + "] table is created";
       case DROP_SUCCESS:
-        return "'[" + name + "]' table is dropped";
+        return "[" + name + "] table is dropped";
       case DROP_REFERENCED_TABLE_ERROR:
         return "Drop table has failed: [" + name + "] is referenced by other table";
       case NON_EXISTING_COLUMN_ERROR:

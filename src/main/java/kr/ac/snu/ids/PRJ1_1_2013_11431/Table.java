@@ -1,11 +1,14 @@
 package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map.Entry;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 public class Table implements Serializable {
   private static final long serialVersionUID = 1L;
@@ -13,16 +16,18 @@ public class Table implements Serializable {
   private String name;
   // The order of columns should be preserved. Therefore LinkedHashMap has been used.
   private LinkedHashMap<String, Column> columns;
-  private HashSet<Column> primaryKeys;
-  private HashSet<Column> foreignKeys;
-  private HashSet<Column> referencedBy;
+  private TreeSet<String> primaryKeys;
+  // colName -> (tableName, colName)
+  private TreeMap<String, Pair> foreignKeys;
+  // (tableName, colName) -> colName
+  private TreeMap<Pair, String> referencedBy;
   
   public Table(String name) {
     this.name = name;
     this.columns = new LinkedHashMap<String, Column>();
-    this.primaryKeys = new HashSet<Column>();
-    this.foreignKeys = new HashSet<Column>();
-    this.referencedBy = new HashSet<Column>();
+    this.primaryKeys = new TreeSet<String>();
+    this.foreignKeys = new TreeMap<String, Pair>();
+    this.referencedBy = new TreeMap<Pair, String>(); 
   }
   
   public String getName() {
@@ -38,7 +43,7 @@ public class Table implements Serializable {
   }
   
   public void addColumn(Column c) {
-    this.columns.put(c.getName(), c);
+    this.columns.put(c.getName(), new Column(c));
   }
   
   public Column getColumn(String name) {
@@ -48,18 +53,46 @@ public class Table implements Serializable {
     return null;
   }
   
-  public HashSet<Column> getPrimaryKeys() {
+  public LinkedHashMap<String, Column> getAllColumns() {
+    return this.columns;
+  }
+  
+  public TreeSet<String> getPrimaryKeys() {
     return this.primaryKeys;
   }
   
-  public boolean primaryKeyExists(Column c) {
-    return this.primaryKeys.contains(c);
+  public boolean primaryKeyExists(String colName) {
+    return this.primaryKeys.contains(colName);
   }
   
-  public void addPrimaryKey(Column c) {
-    c.setPrimary();
-    this.primaryKeys.add(c);
+  public void addPrimaryKey(String colName) {
+    this.getColumn(colName).setPrimary();
+    this.primaryKeys.add(colName);
   }
+  
+  public TreeMap<String, Pair> getForeignKeys() {
+    return this.foreignKeys;
+  }
+  
+  public void addForeignKey(String refColName, String refedTableName, String refedColName) {
+    this.foreignKeys.put(refColName, new Pair(refedTableName, refedColName));
+  }
+  
+  public TreeMap<Pair, String> getReferencedBy() {
+    return this.referencedBy;
+  }
+  
+  public void addReferencedBy(String refTableName, String refColName, String refedColName) {
+    this.referencedBy.put(new Pair(refTableName, refColName), refedColName);
+  }
+  
+  public void removeReferencedBy(String refTableName, String refColName) {
+    this.referencedBy.remove(new Pair(refTableName, refColName));
+  }
+  
+  /*
+   * Util Functions
+   */
   
   @Override
   public String toString() {

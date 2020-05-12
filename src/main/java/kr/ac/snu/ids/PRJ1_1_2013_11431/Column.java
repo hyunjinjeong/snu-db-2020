@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.HashSet;
+import java.util.TreeSet;
 
 public class Column implements Serializable {
   private static final long serialVersionUID = 1L;
@@ -12,77 +13,52 @@ public class Column implements Serializable {
   public static final String CharType = "char";
   public static final String DateType = "date";
   
+  public static String typeToAssign(String type) { return type; }
+  public static String typeToAssign(String type, int length) {
+    return type + "(" + Integer.toString(length) + ")";
+  }
+  
   private String name;
   private String type;
   private boolean isPrimary;
   private boolean isForeign;
   private boolean isNotNull;
-  private String tableName;
-  private HashSet<Column> referencingColumns;
+  private referencing;
+  private HashSet<ForeignKey> referenced;
   
-  public Column(String name, String tableName) {
+  public Column(String name) {
     this.name = name;
     this.type = null;
     this.isPrimary = false;
     this.isForeign = false;
     this.isNotNull = false;
-    this.tableName = tableName;
-    this.referencingColumns = new HashSet<Column>();
+    this.referencing = null;
+    this.referenced = new HashSet<ForeignKey>();
   }
   
-  public String getName() {
-    return this.name;
-  }
+  public String getName() { return this.name; }
   
-  public void setName(String name) {
-    this.name = name;
-  }
+  public String getType() { return this.type; }
+  public void setType(String type) { this.type = type; }
   
-  public String getTableName() {
-    return this.tableName;
-  }
+  public boolean isNotNull() { return this.isNotNull; }
+  public void setNotNull() { this.isNotNull = true; }
   
-  public String getType() {
-    return this.type;
-  }
-  
-  // Int, Date
-  public static String typeToAssign(String type) {
-    return type;
-  }
-  
-  // Char
-  public static String typeToAssign(String type, int length) {
-    return type + "(" + Integer.toString(length) + ")";
-  }
-  
-  public void setType(String type) {
-    this.type = type;
-  }
-  
-  public boolean isNotNull() {
-    return this.isNotNull;
-  }
-
-  public void setNotNull() {
-    this.isNotNull = true;
-  }
-  
-  public boolean isPrimary() {
-    return this.isPrimary;
-  }
-  
+  public boolean isPrimary() { return this.isPrimary; }
   public void setPrimary() {
     this.setNotNull();
     this.isPrimary = true;
   }
   
-  public boolean isForeign() {
-    return this.isForeign;
+  public boolean isForeign() { return this.isForeign; }
+  public ForeignKey getReferencing() { return this.referencing; }
+  public void setForeign(ForeignKey key) {
+    this.referencing = new ForeignKey(key);
+    this.isForeign = true;
   }
   
-  public void setForeign() {
-    this.isForeign = true;
+  public HashSet<ForeignKey> getReferenced() {
+    return this.referenced;
   }
   
   @Override
@@ -112,7 +88,7 @@ public class Column implements Serializable {
   public boolean equals(Object obj) {
     if(obj instanceof Column) {
       Column c = (Column) obj;
-      return c.getName().equals(this.name) && c.getTableName().equals(this.tableName);
+      return c.getName().equals(this.name) && c.getType().equals(this.type);
     }
     else {
       return false;
@@ -120,7 +96,7 @@ public class Column implements Serializable {
   }
   
   @Override
-  public int hashCode() {  
-    return this.name.hashCode() + this.tableName.hashCode();
+  public int hashCode() {
+    return this.name.hashCode() + this.type.hashCode();
   }
 }

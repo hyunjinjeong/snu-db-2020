@@ -26,7 +26,7 @@ public class SimpleDBMSParser
   
   public static void main(String args[]) throws ParseException
   {
-    schema = new Schema();
+    schema = Schema.getSchema();
     
     // Project 1-1 Parser
     SimpleDBMSParser parser = new SimpleDBMSParser(System.in);
@@ -163,100 +163,168 @@ void command() :
 }
 
 void queryList() :
+{}
 {
-  String msg;
-}
-{
-  ( 
-    msg = query()
-    (
-      (
-        // When a query ends at the end.
-        < END >
-        {
-          Message.print(msg);
-          Message.printPrompt();
-        }
-      )
-    | (
-        // For query sequences. 
-        < SEMICOLON >
-        {
-          Message.print(msg);
-        }
-      )
-    )
+  (
+    query()
   )+
 }
 
-String query() :
+void query() :
 {
   String msg;
   String tableName;
+  Table t;
 }
 {
   (
-    createTableQuery()
-    {
-      msg = Message.getMessage(Message.CREATE_TABLE);
-    }
+    t = createTableQuery()
+    (
+      < END >
+      {
+        schema.createTable(t);
+        msg = Message.getMessage(Message.CREATE_TABLE_SUCCESS, t.getName());
+        Message.print(msg);
+        Message.printPrompt();
+      }
+    | < SEMICOLON >
+      {
+        schema.createTable(t);
+        msg = Message.getMessage(Message.CREATE_TABLE_SUCCESS, t.getName());
+        Message.print(msg);
+      }    )
   | tableName = dropTableQuery()
-    {
-      if (!(schema.tableExists(tableName))) {
-        msg = Message.getMessage(Message.NO_SUCH_TABLE);
+    (
+      < END >
+      {
+        if (!(schema.tableExists(tableName))) {
+	      msg = Message.getMessage(Message.NO_SUCH_TABLE);
+	    }
+	    else {
+	      if (schema.isTableReferenced(tableName)) {
+	        throw new ParseException(Message.getMessage(Message.DROP_REFERENCED_TABLE_ERROR, tableName));
+	      }
+	      schema.dropTable(tableName);
+	      msg = Message.getMessage(Message.DROP_SUCCESS, tableName);
+	    }
+        Message.print(msg);
+        Message.printPrompt();
       }
-      else {
-        Table table = schema.getTable(tableName);
-        if (table.isReferenced()) {
-          throw new ParseException(Message.getMessage(Message.DROP_REFERENCED_TABLE_ERROR, tableName));
+    | < SEMICOLON >
+      {
+        if (!(schema.tableExists(tableName))) {
+          msg = Message.getMessage(Message.NO_SUCH_TABLE);
         }
-        schema.dropTable(table);
-        msg = Message.getMessage(Message.DROP_SUCCESS, tableName);
-      }
-    }
+        else {
+          if (schema.isTableReferenced(tableName)) {
+            throw new ParseException(Message.getMessage(Message.DROP_REFERENCED_TABLE_ERROR, tableName));
+          }
+          schema.dropTable(tableName);
+          msg = Message.getMessage(Message.DROP_SUCCESS, tableName);
+        }
+        Message.print(msg);
+      } 
+    )
   | tableName = descQuery()
-    {
-      if (!(schema.tableExists(tableName))) {
-        msg = Message.getMessage(Message.NO_SUCH_TABLE);
+    (
+      < END >
+      {
+        if (!(schema.tableExists(tableName))) {
+          msg = Message.getMessage(Message.NO_SUCH_TABLE);
+        }
+        else {
+          Table table = schema.getTable(tableName);
+          msg = table.toString();
+        }
+        Message.print(msg);
+        Message.printPrompt();
       }
-      else { 
-        Table table = schema.getTable(tableName);
-        msg = table.toString();
+    | < SEMICOLON >
+      {
+        if (!(schema.tableExists(tableName))) {
+          msg = Message.getMessage(Message.NO_SUCH_TABLE);
+        }
+        else {
+          Table table = schema.getTable(tableName);
+          msg = table.toString();
+        }
+        Message.print(msg);
       }
-    }
-  | selectQuery()
-    {
-      msg = Message.getMessage(Message.SELECT);
-    }
-  | insertQuery()
-    {
-      msg = Message.getMessage(Message.INSERT);
-    }
-  | deleteQuery()
-    {
-      msg = Message.getMessage(Message.DELETE);
-    } 
+    )
   | showTablesQuery()
-    {
-      if (schema.isEmpty()) {
-        msg = Message.getMessage(Message.SHOW_TABLES_NO_TABLE);
+    (
+      < END >
+      {
+        if (schema.isEmpty()) {
+          msg = Message.getMessage(Message.SHOW_TABLES_NO_TABLE);
+        }
+        else { 
+          msg = schema.getAllTableNames();
+        }
+        Message.print(msg);
+        Message.printPrompt();
       }
-      else { 
-        msg = schema.getAllTableNames();
+    | < SEMICOLON >
+      {
+        if (schema.isEmpty()) {
+          msg = Message.getMessage(Message.SHOW_TABLES_NO_TABLE);
+        }
+        else { 
+          msg = schema.getAllTableNames();
+        }
+        Message.print(msg);
+        Message.printPrompt();
       }
-    } 
-  ) 
-  (
-    {
-      return msg;
-    }
+    )
+  | selectQuery()
+    (
+      < END >
+      {
+        msg = Message.getMessage(Message.SELECT);
+        Message.print(msg);
+        Message.printPrompt();
+      }
+    | < SEMICOLON >
+      {
+        msg = Message.getMessage(Message.SELECT);
+        Message.print(msg);
+      }
+    )
+  | insertQuery()
+    (
+      < END >
+      {
+        msg = Message.getMessage(Message.INSERT);
+        Message.print(msg);
+        Message.printPrompt();
+      }
+    | < SEMICOLON >
+      {
+        msg = Message.getMessage(Message.INSERT);
+        Message.print(msg);
+      }
+    )
+  | deleteQuery()
+    (
+      < END >
+      {
+        msg = Message.getMessage(Message.DELETE);
+        Message.print(msg);
+        Message.printPrompt();
+      }
+    | < SEMICOLON >
+      {
+        msg = Message.getMessage(Message.DELETE);
+        Message.print(msg);
+      }
+    )
   )
 }
 
 /*
    CREATE TABLE START
 */
-void createTableQuery() :
+Table createTableQuery() :
 {
   String name;
   Table table;
@@ -273,7 +341,7 @@ void createTableQuery() :
   }
   tableElementList(table)
   {
-    schema.createTable(table);
+    return table;
   }
 }
 
@@ -300,7 +368,6 @@ void columnDefinition(Table t) :
 {
   String name;
   String type;
-  Column c;
 }
 {
   name = columnName()
@@ -308,20 +375,21 @@ void columnDefinition(Table t) :
     if (t.columnExists(name)) {
       throw new ParseException(Message.getMessage(Message.DUPLICATE_COLUMN_DEF_ERROR));
     }
-    c = new Column(name, t.getName());
-    t.addColumn(c);
+    schema.addColumn(t, name);
   }
   type = dataType()
   {
-    c.setType(type);
+    schema.setType(t, name, type);
   }
   (
     < NOT >
     < NULL >
     {
-      c.setNotNull();
+      schema.setNotNull(t, name);
     }
   )?
+  {
+  }
 }
 
 void tableConstraintDefinition(Table t) :
@@ -344,11 +412,10 @@ void primaryKeyConstraint(Table t) :
       if (!(t.columnExists(columnName))) {
         throw new ParseException(Message.getMessage(Message.NON_EXISTING_COLUMN_ERROR, columnName)); 
       }
-      Column c = t.getColumn(columnName);
-      if (t.primaryKeyExists(c)) {
+      if (t.primaryKeyExists(columnName)) {
         throw new ParseException(Message.getMessage(Message.DUPLICATE_PRIMARY_KEY_ERROR));
       }
-      t.addPrimaryKey(c);
+      schema.addPrimary(t, columnName);
     }
   }
 }
@@ -364,12 +431,12 @@ void referentialConstraint(Table t) :
   < KEY >
   referencing = columnNameList()
   {
-    ArrayList<Column> referencingList = new ArrayList<Column>();
+    ArrayList<String> referencingList = new ArrayList<String>();
     for (String columnName: referencing) {
       if (!(t.columnExists(columnName))) {
         throw new ParseException(Message.getMessage(Message.NON_EXISTING_COLUMN_ERROR, columnName)); 
       }
-      referencingList.add(t.getColumn(columnName));
+      referencingList.add(columnName);
     }
   }
   < REFERENCES >
@@ -382,22 +449,25 @@ void referentialConstraint(Table t) :
   }
   referenced = columnNameList()
   {
-    ArrayList<Column> referencedList = new ArrayList<Column>();
+    ArrayList<String> referencedList = new ArrayList<String>();
+
     for (String columnName: referenced) {
       if (!(referencedTable.columnExists(columnName))) {
         throw new ParseException(Message.getMessage(Message.REFERENCE_COLUMN_EXISTENCE_ERROR)); 
       }
-      referencedList.add(referencedTable.getColumn(columnName));
+      referencedList.add(columnName);
     }
-    if (referencingList.size() != referencedList.size()) {
+
+    if (referencingList.size() != referencedList.size()
+      || !(schema.isReferencingValidTypes(referencingList, referencedList, t, referencedTable))) {
       throw new ParseException(Message.getMessage(Message.REFERENCE_TYPE_ERROR));
     }
     
-    if (!(schema.isValidForeignKeys(referencedList, referencedTable))) {
+    if (!(schema.isReferencingPrimaryKeys(referencedList, referencedTable))) {
       throw new ParseException(Message.getMessage(Message.REFERENCE_NON_PRIMARY_KEY_ERROR));
     }
 
-    
+    schema.addForeignKeys(referencingList, referencedList, t, referencedTable);
   }
 }
 

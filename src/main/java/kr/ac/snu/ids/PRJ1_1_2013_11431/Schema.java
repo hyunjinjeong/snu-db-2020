@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map.Entry;
 
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
@@ -25,6 +26,7 @@ import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 
 public class Schema {
+  private static Schema schema;
   // To preserve the order of tables, LinkedHashMap has been used.
   private LinkedHashMap<String, Table> tables;
   private Environment databaseEnvironment;
@@ -33,7 +35,14 @@ public class Schema {
   public Schema () {
     this.tables = new LinkedHashMap<String, Table>();
     setupDatabase();
-    this.loadTables();
+    loadTables();
+  }
+  
+  public Schema getSchema() {
+    if (schema == null) {
+      schema = new Schema();
+    }
+    return schema;
   }
   
   // Setup the environment and the database.
@@ -88,13 +97,21 @@ public class Schema {
     ObjectInputStream ois = new ObjectInputStream(bais);
     Object objectMember = ois.readObject();
     Table table = (Table) objectMember;
+    for (Entry<Pair, String> entry: table.getReferencedBy().entrySet()) {
+      Message.print(entry.getKey().toString());
+    }
     return table;
   }
 
-  // Add a table to the database.
+  // Create a table and add it to DB.
   public void createTable(Table t) {
     this.addTableToDatabase(t);
     this.tables.put(t.getName(), t);
+  }
+  
+  public boolean isTableReferenced(String tableName) {
+    Table t = this.getTable(tableName);
+    return t.isReferenced();
   }
   
   private void addTableToDatabase(Table t) {
@@ -121,7 +138,12 @@ public class Schema {
   }
   
   // Drop a table.
-  public void dropTable(Table t) {
+  public void dropTable(String tableName) {
+    Table t = this.getTable(tableName);
+    for (Entry<String, Pair> entry: t.getForeignKeys().entrySet()) {
+      Table refedTable = this.getTable(entry.getValue().first());
+      refedTable.removeReferencedBy(t.getName(), entry.getKey());
+    }
     this.dropTableFromDatabase(t);
     this.tables.remove(t.getName());
   }
@@ -183,15 +205,60 @@ public class Schema {
     return tables.containsKey(name);
   }
   
-  public boolean isValidForeignKeys(ArrayList<Column> referencedList, Table t) {
-    for (Column c: referencedList) {
-      if (!(t.primaryKeyExists(c))) {
-        return false;
-      }
-    }
+  public void addColumn(Table t, String colName) {
+    t.addColumn(new Column(colName, t.getName()));
+  }
+  
+  public void setType(Table t, String colName, String type) {
+    t.getColumn(colName).setType(type);
+  }
+  
+  public void setNotNull(Table t, String colName) {
+    t.getColumn(colName).setNotNull();
+  }
+  
+  public void addPrimary(Table t, String colName) {
+    t.getColumn(colName).setPrimary();
+    t.addPrimaryKey(colName);
+  }
+  
+  public boolean isReferencingPrimaryKeys(ArrayList<String> referencedList, Table t) {
     if (referencedList.size() != t.getPrimaryKeys().size()) {
       return false;
     }
+    
+    for (String colName: referencedList) {
+      if (!t.primaryKeyExists(colName)) {
+        return false;
+      }
+    }
+    
     return true;
+  }
+  
+  public boolean isReferencingValidTypes(ArrayList<String> referencing, ArrayList<String> referenced,
+      Table refTable, Table refedTable) {
+    for (int i = 0; i < referencing.size(); i++) {
+      String refColName = referencing.get(i);
+      String refedColName = referenced.get(i);
+      
+      Column refCol = refTable.getColumn(refColName);
+      Column refedCol = refedTable.getColumn(refedColName);
+      
+      if (!refCol.getType().equals(refedCol.getType())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  public void addForeignKeys(ArrayList<String> referencing, ArrayList<String> referenced, Table refTable, Table refedTable) {
+    for (int i = 0; i < referencing.size(); i++) {
+      String refColName = referencing.get(i);
+      String refedColName = referenced.get(i);
+      refTable.getColumn(refColName).setForeign();
+      refTable.addForeignKey(refColName, refedTable.getName(), refedColName);
+      refedTable.addReferencedBy(refTable.getName(), refColName, refedColName);
+    }    
   }
 }
