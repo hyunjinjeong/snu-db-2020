@@ -309,7 +309,7 @@ public class Schema {
     }
     
     for (String colName: referencedList) {
-      if (!t.getAllColumns().containsKey(colName)) {
+      if (!t.getPrimaryKeys().containsKey(colName)) {
         return true;
       }
     }
