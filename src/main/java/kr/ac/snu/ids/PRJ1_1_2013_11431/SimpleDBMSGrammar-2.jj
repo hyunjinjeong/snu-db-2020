@@ -167,110 +167,46 @@ void query() :
 }
 {
   (
-    // Code got dirty here to support both type of endings.
     t = createTableQuery()
-    (
-      < END >
-      {
-        schema.createTable(t);
-        msg = Message.getMessage(Message.CREATE_TABLE_SUCCESS, t.getName());
-        Message.print(msg);
-        Message.printPrompt();
-      }
-    | < SEMICOLON >
-      {
-        schema.createTable(t);
-        msg = Message.getMessage(Message.CREATE_TABLE_SUCCESS, t.getName());
-        Message.print(msg);
-      }    )
+    {
+      schema.createTable(t);
+      msg = Message.getMessage(Message.CREATE_TABLE_SUCCESS, t.getName());
+    }
   | tableName = dropTableQuery()
-    (
-      < END >
-      {
-        schema.dropTable(tableName);
-        msg = Message.getMessage(Message.DROP_SUCCESS, tableName);
-        Message.print(msg);
-        Message.printPrompt();
-      }
-    | < SEMICOLON >
-      {
-        schema.dropTable(tableName);
-        msg = Message.getMessage(Message.DROP_SUCCESS, tableName);
-        Message.print(msg);
-      } 
-    )
+    {
+      schema.dropTable(tableName);
+      msg = Message.getMessage(Message.DROP_SUCCESS, tableName);
+    }
   | tableName = descQuery()
-    (
-      < END >
-      {
-        msg = schema.desc(tableName);
-        Message.print(msg);
-        Message.printPrompt();
-      }
-    | < SEMICOLON >
-      {
-        msg = schema.desc(tableName);
-        Message.print(msg);
-      }
-    )
+    {
+      msg = schema.desc(tableName);
+    }
   | showTablesQuery()
-    (
-      < END >
-      {
-        msg = schema.showTables();
-        Message.print(msg);
-        Message.printPrompt();
-      }
-    | < SEMICOLON >
-      {
-        msg = schema.showTables();
-        Message.print(msg);
-        Message.printPrompt();
-      }
-    )
-  | selectQuery()
-    (
-      < END >
-      {
-        msg = Message.getMessage(Message.SELECT);
-        Message.print(msg);
-        Message.printPrompt();
-      }
-    | < SEMICOLON >
-      {
-        msg = Message.getMessage(Message.SELECT);
-        Message.print(msg);
-      }
-    )
+    {
+      msg = schema.showTables();
+    }
   | insertQuery()
-    (
-      < END >
-      {
-        msg = Message.getMessage(Message.INSERT);
-        Message.print(msg);
-        Message.printPrompt();
-      }
-    | < SEMICOLON >
-      {
-        msg = Message.getMessage(Message.INSERT);
-        Message.print(msg);
-      }
-    )
+    {
+      msg = Message.getMessage(Message.INSERT);
+    }
   | deleteQuery()
-    (
-      < END >
-      {
-        msg = Message.getMessage(Message.DELETE);
-        Message.print(msg);
-        Message.printPrompt();
-      }
-    | < SEMICOLON >
-      {
-        msg = Message.getMessage(Message.DELETE);
-        Message.print(msg);
-      }
-    )
+    {
+      msg = Message.getMessage(Message.DELETE);
+    }
+  | selectQuery()
+    {
+      msg = Message.getMessage(Message.SELECT);
+    }
   )
+  (
+    < END >
+    {
+      Message.print(msg);
+      Message.printPrompt();
+    }
+  | < SEMICOLON >
+    {
+      Message.print(msg);    }  )
 }
 
 /*
