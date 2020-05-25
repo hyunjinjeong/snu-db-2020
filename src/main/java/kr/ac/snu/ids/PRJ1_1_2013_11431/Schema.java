@@ -126,7 +126,7 @@ public class Schema {
   }
   
   // DESC #t query.
-  public String Desc(String t) throws ParseException {
+  public String desc(String t) throws ParseException {
     if (!this.tables.containsKey(t)) {
       throw new ParseException(Message.getMessage(Message.NO_SUCH_TABLE));
     }
@@ -185,6 +185,21 @@ public class Schema {
     finally {
       cursor.close();
     }
+  }
+  
+  // insert into ... queries
+  public void insertColumn() {
+    
+  }
+  
+  // delete from ... queries
+  public void deleteColumn() {
+    
+  }
+  
+  // select from ... queries
+  public void selectColumn() {
+    
   }
   
   public String getType(String type) {
@@ -309,7 +324,7 @@ public class Schema {
     }
     
     for (String colName: referencedList) {
-      if (!t.getPrimaryKeys().containsKey(colName)) {
+      if (!t.getPrimaryKeys().contains(colName)) {
         return true;
       }
     }

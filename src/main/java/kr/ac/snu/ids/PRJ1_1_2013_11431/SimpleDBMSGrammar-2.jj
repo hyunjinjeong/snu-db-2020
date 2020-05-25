@@ -203,13 +203,13 @@ void query() :
     (
       < END >
       {
-        msg = schema.Desc(tableName);
+        msg = schema.desc(tableName);
         Message.print(msg);
         Message.printPrompt();
       }
     | < SEMICOLON >
       {
-        msg = schema.Desc(tableName);
+        msg = schema.desc(tableName);
         Message.print(msg);
       }
     )
