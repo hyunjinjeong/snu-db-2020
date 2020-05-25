@@ -39,6 +39,9 @@ public class Table implements Serializable {
     return false;
   }
   
+  public boolean hasColumn(String name) {
+    return this.columns.containsKey(name);
+  }
   
   public Column getColumn(String name) {
     if(this.columns.containsKey(name)) {

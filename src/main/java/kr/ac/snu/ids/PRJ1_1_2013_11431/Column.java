@@ -6,17 +6,8 @@ import java.util.HashSet;
 public class Column implements Serializable {
   private static final long serialVersionUID = 1L;
   
-  public static final String IntType = "int";
-  public static final String CharType = "char";
-  public static final String DateType = "date";
-  
-  public static String typeToAssign(String type) { return type; }
-  public static String typeToAssign(String type, int length) {
-    return type + "(" + Integer.toString(length) + ")";
-  }
-  
   private String name;
-  private String type;
+  private Type type;
   private boolean isPrimary;
   private boolean isForeign;
   private boolean isNotNull;
@@ -38,9 +29,9 @@ public class Column implements Serializable {
   public void setName(String name) { this.name = name; }
   
   
-  public String getType() { return this.type; }
+  public Type getType() { return this.type; }
   
-  public void setType(String type) { this.type = type; }
+  public void setType(Type type) { this.type = type; }
   
   
   public boolean isNotNull() { return this.isNotNull; }

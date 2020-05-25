@@ -5,7 +5,7 @@ public class Message {
   public static final int CREATE_TABLE_SUCCESS = 1;
   public static final int DROP_SUCCESS = 2;
   public static final int SELECT = 4;
-  public static final int INSERT = 5;
+  public static final int INSERT_RESULT = 5;
   public static final int DELETE = 6;
   public static final int SHOW_TABLES_NO_TABLE = 7;
   public static final int TABLE_EXISTENCE_ERROR = 8;
@@ -19,6 +19,11 @@ public class Message {
   public static final int REFERENCE_COLUMN_EXISTENCE_ERROR = 16;
   public static final int REFERENCE_NON_PRIMARY_KEY_ERROR = 17;
   public static final int REFERENCE_TYPE_ERROR = 18;
+  public static final int INSERT_TYPE_MISMATCH_ERROR = 19;
+  public static final int INSERT_COLUMN_EXISTENCE_ERROR = 20;
+  public static final int INSERT_COLUMN_NON_NULLABLE_ERROR = 21;
+  public static final int INSERT_DUPLICATE_PRIMARY_KEY_ERROR = 22;
+  public static final int INSERT_REFERENTIAL_INTEGRITY_ERROR = 23;
   
   public static void print(String msg) {
     System.out.println(msg);
@@ -41,8 +46,8 @@ public class Message {
         return "Syntax error";
       case SELECT:
         return "'SELECT' requested";
-      case INSERT:
-        return "'INSERT' requested";
+      case INSERT_RESULT:
+        return "The row is inserted";
       case DELETE:
         return "'DELETE' requested";
       case TABLE_EXISTENCE_ERROR:
@@ -65,6 +70,12 @@ public class Message {
         return "Create table has failed: foreign key references non primary key column";
       case REFERENCE_TYPE_ERROR:
         return "Create table has failed: foreign key references wrong type";
+      case INSERT_TYPE_MISMATCH_ERROR:
+        return "Insertion has failed: Types are not matched";
+      case INSERT_DUPLICATE_PRIMARY_KEY_ERROR:
+        return "Insertion has failed: Primary key duplication";
+      case INSERT_REFERENTIAL_INTEGRITY_ERROR:
+        return "Insertion has failed: Referential integrity violation";
       default:
         return "Undefined Message";
     }
@@ -82,6 +93,10 @@ public class Message {
         return "Drop table has failed: [" + name + "] is referenced by other table";
       case NON_EXISTING_COLUMN_ERROR:
         return "Create table has failed: [" + name + "] does not exist in column definition";
+      case INSERT_COLUMN_EXISTENCE_ERROR:
+        return "Insertion has failed: [" + name + "] does not exist";
+      case INSERT_COLUMN_NON_NULLABLE_ERROR:
+        return "Insertion has failed: [" + name + "] is not nullable";
       default:
         return "Undefined Message";
     }

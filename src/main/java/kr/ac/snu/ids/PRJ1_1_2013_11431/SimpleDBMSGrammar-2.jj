@@ -160,60 +160,23 @@ void queryList() :
 }
 
 void query() :
+{}
 {
-  String msg;
-  String tableName;
-  Table t;
-}
-{
-  (
-    t = createTableQuery()
-    {
-      schema.createTable(t);
-      msg = Message.getMessage(Message.CREATE_TABLE_SUCCESS, t.getName());
-    }
-  | tableName = dropTableQuery()
-    {
-      schema.dropTable(tableName);
-      msg = Message.getMessage(Message.DROP_SUCCESS, tableName);
-    }
-  | tableName = descQuery()
-    {
-      msg = schema.desc(tableName);
-    }
-  | showTablesQuery()
-    {
-      msg = schema.showTables();
-    }
-  | insertQuery()
-    {
-      msg = Message.getMessage(Message.INSERT);
-    }
-  | deleteQuery()
-    {
-      msg = Message.getMessage(Message.DELETE);
-    }
-  | selectQuery()
-    {
-      msg = Message.getMessage(Message.SELECT);
-    }
-  )
-  (
-    < END >
-    {
-      Message.print(msg);
-      Message.printPrompt();
-    }
-  | < SEMICOLON >
-    {
-      Message.print(msg);    }  )
+  createTableQuery()
+| dropTableQuery()
+| descQuery()
+| showTablesQuery()
+| insertQuery()
+| deleteQuery()
+| selectQuery()
 }
 
 /*
    CREATE TABLE START
 */
-Table createTableQuery() :
+void createTableQuery() :
 {
+  String msg;
   String name;
   Table table = new Table();
 }
@@ -225,9 +188,20 @@ Table createTableQuery() :
     table.setName(name);
   }
   tableElementList(table)
-  {
-    return table;
-  }
+  (
+    < END >
+    {
+      schema.createTable(table);
+      msg = Message.getMessage(Message.CREATE_TABLE_SUCCESS, name);
+      Message.print(msg);
+      Message.printPrompt();
+    }
+  | < SEMICOLON >
+    {
+      schema.createTable(table);
+      msg = Message.getMessage(Message.CREATE_TABLE_SUCCESS, name);
+      Message.print(msg);
+    }  )
 }
 
 void tableElementList(Table t) :
@@ -252,7 +226,7 @@ void tableElement(Table t) :
 void columnDefinition(Table t) :
 {
   String name;
-  String type;
+  Type type;
   Column c = new Column();
 }
 {
@@ -341,9 +315,9 @@ ArrayList<String> columnNameList() :
   }
 }
 
-String dataType() :
+Type dataType() :
 {
-  String type;
+  Type type;
   Token lengthToken;
   int intLength;
 }
@@ -351,7 +325,7 @@ String dataType() :
   (
     < INT >
     {
-      type = schema.getType(Column.IntType);
+      type = schema.getType(Type.IntType);
     }
   | (
       < CHAR >
@@ -361,11 +335,11 @@ String dataType() :
     )
     {
       intLength = Integer.parseInt(lengthToken.image);
-      type = schema.getType(Column.CharType, intLength); 
+      type = schema.getType(Type.CharType, intLength); 
     }
   | < DATE >
     {
-      type = schema.getType(Column.DateType);
+      type = schema.getType(Type.DateType);
     }
   )
   {
@@ -397,36 +371,72 @@ String columnName() :
 /*
    DROP TABLE / DESC / SHOW TABLES START
 */
-String dropTableQuery() :
+void dropTableQuery() :
 {
+  String msg;
   String name;
 }
 {
   < DROP >
   < TABLE >
   name = tableName()
-  {
-    return name;
-  }
+  (
+    < END >
+    {
+      schema.dropTable(name);
+      msg = Message.getMessage(Message.DROP_SUCCESS, name);
+      Message.print(msg);
+      Message.printPrompt();
+    }
+  | < SEMICOLON >
+    {
+      schema.dropTable(name);
+      msg = Message.getMessage(Message.DROP_SUCCESS, name);
+      Message.print(msg);
+    }  )
 }
 
-String descQuery() :
+void descQuery() :
 {
+  String msg;
   String name;
 }
 {
   < DESC >
   name = tableName()
-  {
-    return name;
-  }
+  (
+    < END >
+    {
+      msg = schema.desc(name);
+      Message.print(msg);
+      Message.printPrompt();
+    }
+  | < SEMICOLON >
+    {
+      msg = schema.desc(name);
+      Message.print(msg);
+    }  )
 }
 
 void showTablesQuery() :
-{}
+{
+  String msg;
+}
 {
   < SHOW >
   < TABLES >
+  (
+    < END >
+    {
+      msg = schema.showTables();
+      Message.print(msg);
+      Message.printPrompt();
+    }
+  | < SEMICOLON >
+    {
+      msg = schema.showTables();
+      Message.print(msg);
+    }  )
 }
 /*
    DROP TABLE / DESC / SHOW TABLES END
@@ -436,11 +446,25 @@ void showTablesQuery() :
    SELECT START
 */
 void selectQuery() :
-{}
+{
+  String msg;
+}
 {
   < SELECT >
   selectList()
   tableExpression()
+  (
+    < END >
+    {
+      msg = Message.getMessage(Message.SELECT);
+      Message.print(msg);
+      Message.printPrompt();
+    }
+  | < SEMICOLON >
+    {
+      msg = Message.getMessage(Message.SELECT);
+      Message.print(msg);
+    }  )
 }
 
 void selectList() :
@@ -628,12 +652,27 @@ void compOp() :
   < OPERATOR >
 }
 
-void comparableValue() :
-{}
+Value comparableValue() :
+{
+  Value v;
+}
 {
   < INT_VALUE >
+  {
+    v = new Value(new Type(Type.IntType), Integer.parseInt(token.image));
+    return v;
+  }
 | < CHAR_STRING >
+  {
+    String val = token.image.substring(1, token.image.length()-1);
+    v = new Value(new Type(Type.CharType), val);
+    return v;
+  }
 | < DATE_VALUE >
+  {
+    v = new Value(new Type(Type.DateType), token.image);
+    return v;
+  }
 }
 
 void nullOperation() :
@@ -653,45 +692,94 @@ void nullOperation() :
    INSERT / DELETE START
 */
 void insertQuery() :
-{}
+{
+  String msg;
+  String tableName;
+  Pair<ArrayList<String>, ArrayList<Value>> columnsAndValues;
+}
 {
   < INSERT >
   < INTO >
-  tableName()
-  insertColumnAndSource()
+  tableName = tableName()
+  columnsAndValues = insertColumnAndSource()
+  (
+    < END >
+    {
+      schema.insertRecord(tableName, columnsAndValues.first(), columnsAndValues.second());
+      msg = Message.getMessage(Message.INSERT_RESULT);
+      Message.print(msg);
+      Message.printPrompt();
+    }
+  | < SEMICOLON >
+    {
+      schema.insertRecord(tableName, columnsAndValues.first(), columnsAndValues.second());
+      msg = Message.getMessage(Message.INSERT_RESULT);
+      Message.print(msg);
+    }
+  )
 }
 
-void insertColumnAndSource() :
-{}
+Pair<ArrayList<String>, ArrayList<Value>> insertColumnAndSource() :
+{
+  ArrayList<String> columnNames = new ArrayList<String>();
+  ArrayList<Value> values;
+}
 {
   (
-    columnNameList()
+    columnNames = columnNameList()
   )?
-  valueList()
+  values = valueList()
+  {
+    return new Pair(columnNames, values);
+  }
 }
 
-void valueList() :
-{}
+ArrayList<Value> valueList() :
+{
+  Value v;
+  ArrayList<Value> values = new ArrayList<Value>();
+}
 {
   < VALUES >
   < LEFT_PAREN >
-  value()
+  v = value()
+  {
+    values.add(v);
+  }
   (
     < COMMA >
-    value()
+    v = value()
+    {
+      values.add(v);
+    }
   )*
   < RIGHT_PAREN >
+  {
+    return values;
+  }
 }
 
-void value() :
-{}
+Value value() :
 {
-  < NULL >
-| comparableValue()
+  Value v;
+}
+{
+  (
+    < NULL >
+    {
+      v = new Value(new Type(Type.NullType));
+    }
+  | v = comparableValue()
+  )
+  {
+    return v;
+  }
 }
 
 void deleteQuery() :
-{}
+{
+  String msg;
+}
 {
   < DELETE >
   < FROM >
@@ -699,6 +787,18 @@ void deleteQuery() :
   (
     whereClause()
   )?
+  (
+    < END >
+    {
+      msg = Message.getMessage(Message.DELETE);
+      Message.print(msg);
+      Message.printPrompt();
+    }
+  | < SEMICOLON >
+    {
+      msg = Message.getMessage(Message.DELETE);
+      Message.print(msg);
+    }  )
 }
 /*
    INSERT / DELETE END

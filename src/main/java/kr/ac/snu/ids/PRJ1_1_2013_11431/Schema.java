@@ -9,6 +9,8 @@ import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.Map.Entry;
+
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
@@ -22,8 +24,10 @@ public class Schema {
   private static Schema schema;
   // LinkedHashMap has been used in order to preserve the order of tables.
   private LinkedHashMap<String, Table> tables;
+  private LinkedHashMap<String, ArrayList<Record>> records;
   private Environment databaseEnvironment;
   private Database db;
+  private Database recordDb;
   
   public static Schema getSchema() {
     if (schema == null) {
@@ -35,8 +39,10 @@ public class Schema {
   // Use a singleton class
   private Schema () {
     this.tables = new LinkedHashMap<String, Table>();
+    this.records = new LinkedHashMap<String, ArrayList<Record>>();
     setupDatabase();
     loadTables();
+    loadRecords();
   }
   
   // Setup the environment and the database.
@@ -47,10 +53,18 @@ public class Schema {
     
     DatabaseConfig dbConfig = new DatabaseConfig();
     dbConfig.setAllowCreate(true);
-    this.db = databaseEnvironment.openDatabase(null, "sampleDatabase", dbConfig);
+    this.db = databaseEnvironment.openDatabase(null, "db", dbConfig);
+    
+    DatabaseConfig recordDbConfig = new DatabaseConfig();
+    recordDbConfig.setAllowCreate(true);
+    recordDbConfig.setSortedDuplicates(true);
+    this.recordDb = databaseEnvironment.openDatabase(null, "records", recordDbConfig);
   }
   
   public void closeDatabase() {
+    if (recordDb != null) {
+      recordDb.close();
+    }
     if (db != null) {
       db.close();
     }
@@ -71,6 +85,28 @@ public class Schema {
       while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
         Table table = deserializeTable(foundData.getData());
         this.tables.put(table.getName(), table);
+        this.records.put(table.getName(), new ArrayList<Record>());
+      }
+    }
+    catch (Exception e) {
+    }
+    finally {
+      cursor.close();
+    }
+  }
+  
+  // Load all records from the database.
+  private void loadRecords() {
+    Cursor cursor = null;
+    
+    try {
+      cursor = recordDb.openCursor(null, null);
+      DatabaseEntry foundKey = new DatabaseEntry();
+      DatabaseEntry foundData = new DatabaseEntry();
+      
+      while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
+        Record record = deserializeRecord(foundData.getData());
+        this.records.get(record.getTableName()).add(record);
       }
     }
     catch (Exception e) {
@@ -91,6 +127,7 @@ public class Schema {
       throw new ParseException(Message.getMessage(Message.TABLE_EXISTENCE_ERROR));
     }
     this.addTable(t);
+    this.records.put(t.getName(), new ArrayList<Record>());
   }
   
   public void addTable(Table t) {
@@ -108,6 +145,16 @@ public class Schema {
     }
     finally {
       cursor.close();
+    }
+  }
+  
+  public void addRecord(String tableName, Record r) {
+    try {
+      DatabaseEntry key = new DatabaseEntry(tableName.getBytes("UTF-8"));
+      DatabaseEntry data = new DatabaseEntry(serializeRecord(r));
+      recordDb.put(null, key, data);
+    }
+    catch (Exception e) {
     }
   }
   
@@ -178,6 +225,7 @@ public class Schema {
       if (cursor.count() > 0) {
         cursor.delete();
         this.tables.remove(tableName);
+        this.records.remove(tableName);
       }
     }
     catch (Exception e) {
@@ -188,32 +236,184 @@ public class Schema {
   }
   
   // insert into ... queries
-  public void insertColumn() {
+  public void insertRecord(String tableName, ArrayList<String> columnNames, ArrayList<Value> values) throws ParseException {
+    if (!this.tables.containsKey(tableName)) throw new ParseException(Message.getMessage(Message.NO_SUCH_TABLE));
     
+    Table t = tables.get(tableName);
+    
+    ArrayList<Column> columns = new ArrayList<Column>();
+    
+    if (columnNames.isEmpty()) { // When there are no columns specified.
+      for (Entry<String, Column> entry: t.getAllColumns().entrySet()) {
+        columns.add(entry.getValue());
+      }
+    }
+    else {
+      if (columnNames.size() != t.getAllColumns().size()) {
+        throw new ParseException(Message.getMessage(Message.INSERT_TYPE_MISMATCH_ERROR));
+      }
+      
+      for (String colName: columnNames) {
+        if (!t.hasColumn(colName)) {
+          throw new ParseException(Message.getMessage(Message.INSERT_COLUMN_EXISTENCE_ERROR, colName));
+        }
+        columns.add(t.getColumn(colName));
+      }
+    }
+    
+    if (columns.size() != values.size()) {
+      throw new ParseException(Message.getMessage(Message.INSERT_TYPE_MISMATCH_ERROR));
+    }
+    
+    Record r = new Record(tableName);
+    
+    for (int i = 0; i < values.size(); i++) {
+      Column c = columns.get(i);
+      Value v = values.get(i);
+      
+      // Deal with null cases.
+      if (c.isNotNull() && v.isNull()) {
+        throw new ParseException(Message.getMessage(Message.INSERT_COLUMN_NON_NULLABLE_ERROR, c.getName()));
+      }
+      
+      if(!v.isNull() && !c.getType().getType().equals(v.getType().getType())) {
+        throw new ParseException(Message.getMessage(Message.INSERT_TYPE_MISMATCH_ERROR));
+      }
+      
+      // Truncate values of CHAR types.
+      if (c.getType().getType().equals(Type.CharType) && !v.isNull()) {
+        String stringValue = v.getStringValue();
+        int limitLength = c.getType().getLength();
+        if (stringValue.length() > limitLength) {
+          v.setStringValue(v.getStringValue().substring(0, limitLength));
+        }
+      }
+      
+      r.addValue(c.getName(), v);
+    }
+
+    // Check primary key constraints.
+    if (isInsertingDuplicatePrimaryKey(r)) {
+      throw new ParseException(Message.getMessage(Message.INSERT_DUPLICATE_PRIMARY_KEY_ERROR));
+    }
+    
+    // Check foreign key constraints.
+    if (isBreakingForeignKeyConstraints(r)) {
+      throw new ParseException(Message.getMessage(Message.INSERT_REFERENTIAL_INTEGRITY_ERROR));
+    }
+    
+    this.addRecord(r.getTableName(), r);
+    this.records.get(r.getTableName()).add(r);
+  }
+  
+  private boolean isInsertingDuplicatePrimaryKey(Record r) {
+    Table t = this.tables.get(r.getTableName());
+    HashSet<String> primaryKeys = t.getPrimaryKeys();
+    
+    if (primaryKeys.isEmpty()) {
+      return false;
+    }
+    
+    ArrayList<Record> records = this.records.get(r.getTableName());
+    
+    if (records.isEmpty()) {
+      return false;
+    }
+    
+    for (Record record: records) {
+      if (checkAllColumnsSame(r, record, primaryKeys)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  private boolean checkAllColumnsSame(Record r, Record r2, HashSet<String> colNames) {
+    for (String colName: colNames) {
+      if (!r.getValue(colName).equals(r2.getValue(colName))) {
+        // Primary keys are the same each other only if all the values are the same.
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  private boolean isBreakingForeignKeyConstraints(Record r) {
+    Table t = this.tables.get(r.getTableName());
+    HashSet<Column> foreignKeys = t.getForeignKeys();
+    // <TableName, <ReferencingColumn, ReferencedColumn>>
+    LinkedHashMap<String, LinkedHashMap<String, String>> referencedColumns = new LinkedHashMap<String, LinkedHashMap<String, String>>(); 
+    
+    if (foreignKeys.isEmpty()) {
+      return false;
+    }
+    
+    // Save foreign key columns structure
+    for (Column c: t.getForeignKeys()) {
+      String tName = c.getReferencing().getTableName();
+      String colName = c.getReferencing().getColName();
+      if (!referencedColumns.containsKey(c.getReferencing().getTableName())) {
+        referencedColumns.put(tName, new LinkedHashMap<String, String>());
+      }
+      referencedColumns.get(tName).put(c.getName(), colName);
+    }
+    
+    for (Entry<String, LinkedHashMap<String, String>> entry: referencedColumns.entrySet()) {
+      ArrayList<Record> records = this.records.get(entry.getKey());
+      boolean isValid = false;
+      
+      if (records.isEmpty()) {
+        isValid = false;
+      }
+      else {
+        for (Record record: records) {
+          if (checkAllColumnsSame(r, record, entry.getValue())) {
+            isValid = true;
+          }
+        }
+      }
+      
+      if (!isValid) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  private boolean checkAllColumnsSame(Record r, Record r2, LinkedHashMap<String, String> colNames) {
+    for (Entry<String, String> entry: colNames.entrySet()) {
+      if (!r.getValue(entry.getKey()).equals(r2.getValue(entry.getValue()))) {
+        // Check all the foreign keys reference existing values.
+        return false;
+      }
+    }
+    
+    return true;
   }
   
   // delete from ... queries
-  public void deleteColumn() {
+  public void deleteRecord() {
     
   }
   
   // select from ... queries
-  public void selectColumn() {
+  public void selectRecord() {
     
   }
   
-  public String getType(String type) {
-    if (type.equals(Column.IntType)) {
-      return Column.IntType;
-    }
-    return Column.DateType;
+  // Int, Date
+  public Type getType(String type) {
+    return new Type(type);
   }
   
-  public String getType(String type, int length) throws ParseException {
+  // Char
+  public Type getType(String type, int length) throws ParseException {
     if (length < 1) {
       throw new ParseException(Message.getMessage(Message.CHAR_LENGTH_ERROR));
     }
-    return Column.typeToAssign(type, length);
+    return new Type(type, length);
   }
   
   public boolean isEmpty() {
@@ -234,7 +434,7 @@ public class Schema {
     t.addColumn(c);;
   }
   
-  public void setType(Table t, String colName, String type) {
+  public void setType(Table t, String colName, Type type) {
     t.getColumn(colName).setType(type);
   }
   
@@ -346,5 +546,20 @@ public class Schema {
     Object objectMember = ois.readObject();
     Table table = (Table) objectMember;
     return table;
+  }
+  
+  private static byte[] serializeRecord(Record r) throws IOException {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    ObjectOutputStream oos = new ObjectOutputStream(baos);
+    oos.writeObject(r);
+    return baos.toByteArray();
+  }
+  
+  private static Record deserializeRecord(byte[] t) throws ClassNotFoundException, IOException {
+    ByteArrayInputStream bais = new ByteArrayInputStream(t);
+    ObjectInputStream ois = new ObjectInputStream(bais);
+    Object objectMember = ois.readObject();
+    Record record= (Record) objectMember;
+    return record;
   }
 }
