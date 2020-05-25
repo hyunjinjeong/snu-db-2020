@@ -12,7 +12,7 @@ The first project is to implement a simple SQL parser by using [JavaCC](https://
 
 ## Project 1-2: Implementing DDL
 
-Based on Project 1-1, implement functions to save and manage schemas.
+Based on Project 1-1, implement functions to save and manage schemas with BerkeleyDB.
 
 - CREATE TABLE
 - DROP TABLE #name
@@ -21,7 +21,11 @@ Based on Project 1-1, implement functions to save and manage schemas.
 
 ## Project 1-3: Implmenting DML
 
-Based on Project 1-1 and 1-2, implement functions that directly handle data, e.g., insert, delete, and select.
+Based on Project 1-1 and 1-2, implement DMLs that directly handle data with BerkeleyDB.
+
+- INSERT
+- DELETE
+- SELECT
 
 ## Environment and Versions
 
