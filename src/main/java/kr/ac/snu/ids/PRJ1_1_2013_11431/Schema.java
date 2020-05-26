@@ -363,6 +363,10 @@ public class Schema {
       ArrayList<Record> records = this.records.get(entry.getKey());
       boolean isValid = false;
       
+      if (containsOnlyNull(r, entry.getValue())) {
+        continue;
+      }
+      
       if (records.isEmpty()) {
         return true;
       }
@@ -382,9 +386,19 @@ public class Schema {
     return false;
   }
   
+  private boolean containsOnlyNull(Record r, LinkedHashMap<String, String> colNames) {
+    for (Entry<String, String> entry: colNames.entrySet()) {
+      if (!r.getValue(entry.getKey()).isNull()) {
+        // Check all the foreign keys have null values.
+        return false;
+      }
+    }
+    return true;
+  }
+  
   private boolean isAllColumnsSame(Record r, Record r2, LinkedHashMap<String, String> colNames) {
     for (Entry<String, String> entry: colNames.entrySet()) {
-      if (!r.getValue(entry.getKey()).equals(r2.getValue(entry.getValue()))) {
+      if (!r.getValue(entry.getKey()).isNull() && !r.getValue(entry.getKey()).equals(r2.getValue(entry.getValue()))) {
         // Check all the foreign keys reference existing values.
         return false;
       }
