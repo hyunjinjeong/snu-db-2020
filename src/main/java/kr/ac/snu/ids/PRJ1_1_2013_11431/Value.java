@@ -2,7 +2,7 @@ package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
 import java.io.Serializable;
 
-public class Value implements Serializable {
+public class Value implements Serializable, Where.CompOperand {
   private static final long serialVersionUID = 1L;
   
   private Type type;
@@ -42,6 +42,19 @@ public class Value implements Serializable {
     if (this.type.getType().equals(Type.IntType)) {
       return Integer.toString(this.intValue);
     }
+    if (this.type.getType().equals(Type.CharType)) {
+      return "'" + this.stringValue + "'";
+    }
     return this.stringValue;
+  }
+  
+  public int compare(Value that) {
+    if (this.type.getType().equals(Type.IntType)) {
+      return this.intValue - that.getIntValue();
+    }
+    if (this.type.getType().equals(Type.CharType) || this.type.getType().equals(Type.DateType)) {
+      return this.stringValue.compareTo(that.getStringValue());
+    }
+    return 0;
   }
 }

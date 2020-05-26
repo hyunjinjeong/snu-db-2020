@@ -6,7 +6,7 @@ public class Message {
   public static final int DROP_SUCCESS = 2;
   public static final int SELECT = 4;
   public static final int INSERT_RESULT = 5;
-  public static final int DELETE = 6;
+  public static final int DELETE_RESULT = 6;
   public static final int SHOW_TABLES_NO_TABLE = 7;
   public static final int TABLE_EXISTENCE_ERROR = 8;
   public static final int NO_SUCH_TABLE = 9;
@@ -48,8 +48,6 @@ public class Message {
         return "'SELECT' requested";
       case INSERT_RESULT:
         return "The row is inserted";
-      case DELETE:
-        return "'DELETE' requested";
       case TABLE_EXISTENCE_ERROR:
         return "Create table has failed: table with the same name already exists";
       case NO_SUCH_TABLE:
@@ -99,6 +97,17 @@ public class Message {
         return "Insertion has failed: [" + name + "] is not nullable";
       default:
         return "Undefined Message";
+    }
+  }
+  
+  // Messages supporting int arguments.
+  public static String getMessage(int q, int number) {
+    switch(q)
+    {
+      case DELETE_RESULT:
+        return "[" + Integer.toString(number) + "] row(s) are deleted";
+      default:
+        return "Undefined MEssage";
     }
   }
 }

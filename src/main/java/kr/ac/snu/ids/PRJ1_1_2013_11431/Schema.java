@@ -24,7 +24,6 @@ public class Schema {
   private static Schema schema;
   // LinkedHashMap has been used in order to preserve the order of tables.
   private LinkedHashMap<String, Table> tables;
-  private LinkedHashMap<String, ArrayList<Record>> records;
   private Environment databaseEnvironment;
   private Database db;
   private Database recordDb;
@@ -39,10 +38,8 @@ public class Schema {
   // Use a singleton class
   private Schema () {
     this.tables = new LinkedHashMap<String, Table>();
-    this.records = new LinkedHashMap<String, ArrayList<Record>>();
     setupDatabase();
     loadTables();
-    loadRecords();
   }
   
   // Setup the environment and the database.
@@ -85,28 +82,6 @@ public class Schema {
       while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
         Table table = deserializeTable(foundData.getData());
         this.tables.put(table.getName(), table);
-        this.records.put(table.getName(), new ArrayList<Record>());
-      }
-    }
-    catch (Exception e) {
-    }
-    finally {
-      cursor.close();
-    }
-  }
-  
-  // Load all records from the database.
-  private void loadRecords() {
-    Cursor cursor = null;
-    
-    try {
-      cursor = recordDb.openCursor(null, null);
-      DatabaseEntry foundKey = new DatabaseEntry();
-      DatabaseEntry foundData = new DatabaseEntry();
-      
-      while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
-        Record record = deserializeRecord(foundData.getData());
-        this.records.get(record.getTableName()).add(record);
       }
     }
     catch (Exception e) {
@@ -127,7 +102,6 @@ public class Schema {
       throw new ParseException(Message.getMessage(Message.TABLE_EXISTENCE_ERROR));
     }
     this.addTable(t);
-    this.records.put(t.getName(), new ArrayList<Record>());
   }
   
   public void addTable(Table t) {
@@ -225,7 +199,6 @@ public class Schema {
       if (cursor.count() > 0) {
         cursor.delete();
         this.tables.remove(tableName);
-        this.records.remove(tableName);
       }
     }
     catch (Exception e) {
@@ -233,6 +206,37 @@ public class Schema {
     finally {
       cursor.close();
     }
+  }
+  
+  private LinkedHashMap<String, ArrayList<Record>> loadAllRecords() {
+    LinkedHashMap<String, ArrayList<Record>> records = new LinkedHashMap<String, ArrayList<Record>>();
+    Cursor cursor = null;
+    
+    try {
+      cursor = recordDb.openCursor(null, null);
+      DatabaseEntry foundKey = new DatabaseEntry();
+      DatabaseEntry foundData = new DatabaseEntry();
+      
+      while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
+        Record record = deserializeRecord(foundData.getData());
+        records.get(record.getTableName()).add(record);
+      }
+    }
+    catch (Exception e) {
+    }
+    finally {
+      cursor.close();
+    }
+    
+    return records;
+  }
+  
+  private ArrayList<Record> loadRecords(String tableName) {
+    LinkedHashMap<String, ArrayList<Record>> records = this.loadAllRecords();
+    if (records.containsKey(tableName)) {
+      return records.get(tableName);
+    }
+    return new ArrayList<Record>();
   }
   
   // insert into ... queries
@@ -303,7 +307,6 @@ public class Schema {
     }
     
     this.addRecord(r.getTableName(), r);
-    this.records.get(r.getTableName()).add(r);
   }
   
   private boolean isInsertingDuplicatePrimaryKey(Record r) {
@@ -314,8 +317,8 @@ public class Schema {
       return false;
     }
     
-    ArrayList<Record> records = this.records.get(r.getTableName());
-    
+    ArrayList<Record> records = this.loadRecords(r.getTableName());
+
     if (records.isEmpty()) {
       return false;
     }
@@ -342,6 +345,7 @@ public class Schema {
   private boolean isBreakingForeignKeyConstraints(Record r) {
     Table t = this.tables.get(r.getTableName());
     HashSet<Column> foreignKeys = t.getForeignKeys();
+    LinkedHashMap<String, ArrayList<Record>> allRecords = this.loadAllRecords();
     // <TableName, <ReferencingColumn, ReferencedColumn>>
     LinkedHashMap<String, LinkedHashMap<String, String>> referencedColumns = new LinkedHashMap<String, LinkedHashMap<String, String>>(); 
     
@@ -360,7 +364,7 @@ public class Schema {
     }
     
     for (Entry<String, LinkedHashMap<String, String>> entry: referencedColumns.entrySet()) {
-      ArrayList<Record> records = this.records.get(entry.getKey());
+      ArrayList<Record> records = allRecords.get(entry.getKey());
       boolean isValid = false;
 
       // Check if there is at least one foreign key whose value is null. If so, it's always valid.
@@ -408,8 +412,38 @@ public class Schema {
   }
   
   // delete from ... queries
-  public void deleteRecord() {
+  public int deleteRecord(String tableName, Where.BooleanValueExpression bve) throws ParseException {
+    if (!this.tables.containsKey(tableName)) throw new ParseException(Message.getMessage(Message.NO_SUCH_TABLE));
     
+    if (bve != null) Message.print(bve.toString());
+    
+    return 0;
+    
+//    Table t = tables.get(tableName);
+//    Cursor cursor = null;
+//    int deleteCnt = 0;
+//    int failCnt = 0;
+//    
+//    try {
+//      cursor = recordDb.openCursor(null, null);
+//      DatabaseEntry foundKey = new DatabaseEntry(tableName.getBytes("UTF-8"));
+//      DatabaseEntry foundData = new DatabaseEntry();
+//      
+//      while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
+//        Record record = deserializeRecord(foundData.getData());
+//        if (record.getTableName().equals(tableName) && (bve == null || bve.eval(record) == ThreeValuedLogic.TRUE )) {
+//          cursor.delete();
+//          deleteCnt++;
+//        }
+//      }
+//    }
+//    catch (Exception e) {
+//    }
+//    finally {
+//      cursor.close();
+//    }
+//    
+//    return deleteCnt;
   }
   
   // select from ... queries

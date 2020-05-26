@@ -500,18 +500,30 @@ void period() :
    Make a new term for duplicate expressions.
    < COLUMN IN TABLE > ::= [< TABLE NAME > < PERIOD >] < COLUMN NAME >
 */ 
-void columnInTable() :
-{}
+ColumnInTable columnInTable() :
+{
+  ColumnInTable c = new ColumnInTable();
+  String tName;
+  String cName;
+  Column column;
+}
 {
   (
     /*
        A lookahead of 2 is used here because both < TABLE NAME > and < COLUMN NAME > are < LEGAL IDENTIFIER >.
     */
     LOOKAHEAD(2)
-    tableName()
+    tName = tableName()
+    {
+      c.setTableName(tName);
+    }
     period()
   )?
-  columnName()
+  cName = columnName()
+  {
+    c.setColumnName(cName);
+    return c;
+  }
 }
 
 void tableExpression() :
@@ -550,59 +562,116 @@ void referedTable() :
   )?
 }
 
-void whereClause() :
-{}
+Where.BooleanValueExpression whereClause() :
+{
+  Where.BooleanValueExpression bve;
+}
 {
   < WHERE >
-  booleanValueExpression()
+  bve = booleanValueExpression()
+  {
+    return bve;
+  }
 }
 
-void booleanValueExpression() :
-{}
+Where.BooleanValueExpression booleanValueExpression() :
 {
-  booleanTerm()
+  Where.BooleanValueExpression bve = new Where.BooleanValueExpression();
+  Where.BooleanTerm bt;
+}
+{
+  bt = booleanTerm()
+  {
+    bve.addBooleanTerm(bt);
+  }
   (
     < OR >
-    booleanTerm()
+    bt = booleanTerm()
+    {
+      bve.addBooleanTerm(bt);
+    }
   )*
+  {
+    return bve;
+  }
 }
 
-void booleanTerm() :
-{}
+Where.BooleanTerm booleanTerm() :
 {
-  booleanFactor()
+  Where.BooleanTerm bt = new Where.BooleanTerm();
+  Where.BooleanFactor bf;
+}
+{
+  bf = booleanFactor()
+  {
+    bt.addBooleanFactor(bf);
+  }
   (
     < AND >
-    booleanFactor()
+    bf = booleanFactor()
+    {
+      bt.addBooleanFactor(bf);
+    }
   )*
+  {
+    return bt;
+  }
 }
 
-void booleanFactor() :
-{}
+Where.BooleanFactor booleanFactor() :
+{
+  Where.BooleanFactor bf = new Where.BooleanFactor();
+  Where.BooleanTest bt;
+}
 {
   (
     < NOT >
+    {
+      bf.setIsNot();
+    }
   )?
-  booleanTest()
+  bt = booleanTest()
+  {
+    bf.setBooleanTest(bt);
+    return bf;
+  }
 }
 
-void booleanTest() :
-{}
+Where.BooleanTest booleanTest() :
 {
-  predicate()
-| parenthesizedBooleanExpression()
+  Where.BooleanTest bt;
+}
+{
+  (
+    bt = predicate()
+  | bt = parenthesizedBooleanExpression()
+  )
+  {
+    return bt;
+  }
 }
 
-void parenthesizedBooleanExpression() :
-{}
+Where.ParenthesizedBooleanValueExpression parenthesizedBooleanExpression() :
+{
+  Where.ParenthesizedBooleanValueExpression pbve = new Where.ParenthesizedBooleanValueExpression();
+  Where.BooleanValueExpression bve;
+}
 {
   < LEFT_PAREN >
-  booleanValueExpression()
+  bve = booleanValueExpression()
+  {
+    pbve.setBooleanValueExpression(bve);
+  }
   < RIGHT_PAREN >
+  {
+    return pbve;
+  }
 }
 
-void predicate() :
-{}
+Where.Predicate predicate() :
+{
+  Where.Predicate p;
+}
 {
   /*
      comparisonPredicate() can be 'columnInTable() compOp() ...' and
@@ -614,42 +683,96 @@ void predicate() :
      <COLUMN IN TABLE PREDICATE> ::= <COLUMN IN TABLE> (<COMP OP> <COMP OPERAND> | <NULL OPERATION>)
      <COMPARABLE VALUE PREDICATE> ::= <COMPARABLE VALUE> <COMP OP> <COMP OPERAND>    
   */
-  columnInTablePredicate()
-| comparableValuePredicate()
+  (
+    p = columnInTablePredicate()
+  | p = comparableValuePredicate()
+  )
+  {
+    return p;
+  }
 }
 
-void columnInTablePredicate() :
-{}
+Where.ColumnInTablePredicate columnInTablePredicate() :
 {
-  columnInTable()
+  Where.ColumnInTablePredicate citp = new Where.ColumnInTablePredicate();
+  ColumnInTable cit;
+  String op;
+  Where.CompOperand cp;
+  boolean isNullOperation;
+}
+{
+  cit = columnInTable()
+  {
+    citp.setLeft(cit);
+  }
   (
     (
-      compOp()
-      compOperand()
+      op = compOp()
+      cp = compOperand()
+      {
+        citp.setOp(op);
+        citp.setRight(cp);
+      }
     )
-    | nullOperation() 
+    |
+    (
+      nullOperation(citp)
+      {
+        citp.setNullOperation();
+      }
+    )
   )
+  {
+    return citp;
+  }
 }
 
-void comparableValuePredicate() :
-{}
+Where.ComparableValuePredicate comparableValuePredicate() :
 {
-  comparableValue()
-  compOp()
-  compOperand()
+  Where.ComparableValuePredicate cvp = new Where.ComparableValuePredicate();
+  Value left;
+  String op;
+  Where.CompOperand cp;
 }
-
-void compOperand() :
-{}
 {
-  comparableValue()
-| columnInTable()
+  left = comparableValue()
+  {
+    cvp.setLeft(left);
+  }
+  op = compOp()
+  {
+    cvp.setOp(op);
+  }
+  cp = compOperand()
+  {
+    cvp.setRight(cp);
+    return cvp;
+  }
 }
 
-void compOp() :
+Where.CompOperand compOperand() :
+{
+  Value v;
+  ColumnInTable ct;
+}
+{
+  v = comparableValue()
+  {
+    return v;
+  }
+| ct = columnInTable()
+  {
+    return ct;
+  }
+}
+
+String compOp() :
 {}
 {
   < OPERATOR >
+  {
+    return token.image;
+  }
 }
 
 Value comparableValue() :
@@ -675,12 +798,15 @@ Value comparableValue() :
   }
 }
 
-void nullOperation() :
+void nullOperation(Where.ColumnInTablePredicate citp) :
 {}
 {
   < IS >
   (
     < NOT >
+    {
+      citp.setIsNot();
+    }
   )?
   < NULL >
 }
@@ -779,24 +905,29 @@ Value value() :
 void deleteQuery() :
 {
   String msg;
+  int deleteCnt;
+  String tableName;
+  Where.BooleanValueExpression bve = null;
 }
 {
   < DELETE >
   < FROM >
-  tableName()
+  tableName = tableName()
   (
-    whereClause()
+    bve = whereClause()
   )?
   (
     < END >
     {
-      msg = Message.getMessage(Message.DELETE);
+      deleteCnt = schema.deleteRecord(tableName, bve);
+      msg = Message.getMessage(Message.DELETE_RESULT, deleteCnt);
       Message.print(msg);
       Message.printPrompt();
     }
   | < SEMICOLON >
     {
-      msg = Message.getMessage(Message.DELETE);
+      deleteCnt = schema.deleteRecord(tableName, bve);
+      msg = Message.getMessage(Message.DELETE_RESULT, deleteCnt);
       Message.print(msg);
     }  )
 }
