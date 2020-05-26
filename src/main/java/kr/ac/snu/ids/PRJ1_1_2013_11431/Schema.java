@@ -362,8 +362,9 @@ public class Schema {
     for (Entry<String, LinkedHashMap<String, String>> entry: referencedColumns.entrySet()) {
       ArrayList<Record> records = this.records.get(entry.getKey());
       boolean isValid = false;
-      
-      if (containsOnlyNull(r, entry.getValue())) {
+
+      // Check if there is at least one foreign key whose value is null. If so, it's always valid.
+      if (containsNull(r, entry.getValue())) {
         continue;
       }
       
@@ -386,19 +387,18 @@ public class Schema {
     return false;
   }
   
-  private boolean containsOnlyNull(Record r, LinkedHashMap<String, String> colNames) {
+  private boolean containsNull(Record r, LinkedHashMap<String, String> colNames) {
     for (Entry<String, String> entry: colNames.entrySet()) {
-      if (!r.getValue(entry.getKey()).isNull()) {
-        // Check all the foreign keys have null values.
-        return false;
+      if (r.getValue(entry.getKey()).isNull()) {
+        return true;
       }
     }
-    return true;
+    return false;
   }
   
   private boolean isAllColumnsSame(Record r, Record r2, LinkedHashMap<String, String> colNames) {
     for (Entry<String, String> entry: colNames.entrySet()) {
-      if (!r.getValue(entry.getKey()).isNull() && !r.getValue(entry.getKey()).equals(r2.getValue(entry.getValue()))) {
+      if (!r.getValue(entry.getKey()).equals(r2.getValue(entry.getValue()))) {
         // Check all the foreign keys reference existing values.
         return false;
       }
