@@ -321,7 +321,7 @@ public class Schema {
     }
     
     for (Record record: records) {
-      if (checkAllColumnsSame(r, record, primaryKeys)) {
+      if (isAllColumnsSame(r, record, primaryKeys)) {
         return true;
       }
     }
@@ -329,7 +329,7 @@ public class Schema {
     return false;
   }
   
-  private boolean checkAllColumnsSame(Record r, Record r2, HashSet<String> colNames) {
+  private boolean isAllColumnsSame(Record r, Record r2, HashSet<String> colNames) {
     for (String colName: colNames) {
       if (!r.getValue(colName).equals(r2.getValue(colName))) {
         // Primary keys are the same each other only if all the values are the same.
@@ -364,13 +364,13 @@ public class Schema {
       boolean isValid = false;
       
       if (records.isEmpty()) {
-        isValid = false;
+        return true;
       }
-      else {
-        for (Record record: records) {
-          if (checkAllColumnsSame(r, record, entry.getValue())) {
-            isValid = true;
-          }
+      
+      for (Record record: records) {
+        // Check if at least one record has the same values with the referencing record on all the foreign keys.
+        if (isAllColumnsSame(r, record, entry.getValue())) {
+          isValid = true;
         }
       }
       
@@ -382,7 +382,7 @@ public class Schema {
     return false;
   }
   
-  private boolean checkAllColumnsSame(Record r, Record r2, LinkedHashMap<String, String> colNames) {
+  private boolean isAllColumnsSame(Record r, Record r2, LinkedHashMap<String, String> colNames) {
     for (Entry<String, String> entry: colNames.entrySet()) {
       if (!r.getValue(entry.getKey()).equals(r2.getValue(entry.getValue()))) {
         // Check all the foreign keys reference existing values.
