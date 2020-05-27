@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
@@ -425,10 +426,11 @@ public class Schema {
   public Pair<Integer, Integer> deleteRecord(String tableName, Where.BooleanValueExpression bve) throws ParseException {
     if (!this.tables.containsKey(tableName)) throw new ParseException(Message.getMessage(Message.NO_SUCH_TABLE));
     
-    Table t = tables.get(tableName);
     Cursor cursor = null;
     int deleteCnt = 0;
     int failCnt = 0;
+    HashSet<String> tableNameSet = new HashSet<String>();
+    tableNameSet.add(tableName);
     
     try {
       cursor = recordDb.openCursor(null, null);
@@ -442,9 +444,10 @@ public class Schema {
       }
       
       do {
+        ArrayList<Record> records = new ArrayList<Record>();
         Record record = deserializeRecord(foundData.getData());
-        if (record.getTableName().equals(tableName)
-            && (bve == null || ThreeValuedLogic.eval(bve.eval(new Pair<Table, Record>(t, record))))) {
+        records.add(record);
+        if (record.getTableName().equals(tableName) && ThreeValuedLogic.eval(bve.eval(records))) {
           if (removable(record)) {
             cascade(record);
             cursor.delete();
@@ -566,7 +569,7 @@ public class Schema {
   }
   
   // select from ... queries
-  public void selectRecord() {
+  public void selectRecords(Select select, Where.BooleanValueExpression bve) {
     
   }
   

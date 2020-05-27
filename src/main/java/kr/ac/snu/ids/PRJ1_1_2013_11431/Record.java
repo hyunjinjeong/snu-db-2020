@@ -24,6 +24,8 @@ public class Record implements Serializable {
   public void addValue(String colName, Value v) { this.value.put(colName, v); }
   public void setNull(String colName) { this.value.get(colName).setType(new Type(Type.NullType)); }
   
+  public long getId() { return this._id; }
+  
   @Override
   public String toString() {
     String res = "[" + tableName + "] - ";

@@ -1,32 +1,24 @@
 package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
 public class ColumnInTable implements Where.CompOperand {
-  private String tableName;
-  private String columnName;
+  private Column column;
+  private int index;
   
-  public ColumnInTable() {
-    this.tableName = null;
-    this.columnName = null;
+  public ColumnInTable(Column column, int index) {
+    this.column = column;
+    this.index = index;
   }
   
-  public void setTableName(String tableName) {
-    this.tableName = tableName;
+  public Column getColumn() {
+    return this.column;
   }
   
-  public void setColumnName(String columnName) {
-    this.columnName = columnName;
-  }
-  
-  public String getColumnName() {
-    return this.columnName;
-  }
-  
-  public String getTableName() {
-    return this.tableName;
+  public int getIndex() {
+    return this.index;
   }
   
   @Override
   public String toString() {
-    return this.tableName != null ? this.tableName + "." + this.columnName : this.columnName; 
+    return this.index + "." + this.column.getName(); 
   }
 }

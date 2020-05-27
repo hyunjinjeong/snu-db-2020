@@ -28,6 +28,10 @@ public class Message {
   public static final int WHERE_TABLE_NOT_SPECIFIED = 25;
   public static final int WHERE_COLUMN_NOT_EXIST = 26;
   public static final int DELETE_REFERENTIAL_INTEGRITY_PASSED = 27;
+  public static final int SELECT_TABLE_EXISTENCE_ERROR = 28;
+  public static final int SELECT_DUPLICATE_TABLE_ALIAS_ERROR = 29;
+  public static final int SELECT_COLUMN_RESOLVE_ERROR = 30;
+  public static final int WHERE_COLUMN_AMBIGUOUS_REFERENCE = 31;
   
   public static void print(String msg) {
     System.out.println(msg);
@@ -84,6 +88,8 @@ public class Message {
         return "Where clause try to reference tables which are not specified";
       case WHERE_COLUMN_NOT_EXIST:
         return "Where clause try to reference non existing column";
+      case WHERE_COLUMN_AMBIGUOUS_REFERENCE:
+        return "Where clause contains ambiguous reference";
       default:
         return "Undefined Message";
     }
@@ -105,6 +111,12 @@ public class Message {
         return "Insertion has failed: [" + name + "] does not exist";
       case INSERT_COLUMN_NON_NULLABLE_ERROR:
         return "Insertion has failed: [" + name + "] is not nullable";
+      case SELECT_TABLE_EXISTENCE_ERROR:
+        return "Selection has failed: [" + name + "] does not exist";
+      case SELECT_DUPLICATE_TABLE_ALIAS_ERROR:
+        return "Selection has failed: Not unique table/alias [" + name + "]";
+      case SELECT_COLUMN_RESOLVE_ERROR:
+        return "Selection has failed: fail to resolve [" + name + "]";
       default:
         return "Undefined Message";
     }
