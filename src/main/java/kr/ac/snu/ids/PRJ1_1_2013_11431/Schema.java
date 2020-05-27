@@ -17,6 +17,7 @@ import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.Get;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 
@@ -117,6 +118,7 @@ public class Schema {
       cursor.put(key, data);
     }
     catch (Exception e) {
+      e.printStackTrace();
     }
     finally {
       cursor.close();
@@ -124,12 +126,19 @@ public class Schema {
   }
   
   public void addRecord(String tableName, Record r) {
+    Cursor cursor = null;
+    
     try {
+      cursor = recordDb.openCursor(null, null);
       DatabaseEntry key = new DatabaseEntry(tableName.getBytes("UTF-8"));
       DatabaseEntry data = new DatabaseEntry(serializeRecord(r));
-      recordDb.put(null, key, data);
+      cursor.put(key, data);
     }
     catch (Exception e) {
+      e.printStackTrace();
+    }
+    finally {
+      cursor.close();
     }
   }
   
@@ -210,40 +219,6 @@ public class Schema {
     }
   }
   
-  private LinkedHashMap<String, ArrayList<Record>> loadAllRecords() {
-    LinkedHashMap<String, ArrayList<Record>> records = new LinkedHashMap<String, ArrayList<Record>>();
-    Cursor cursor = null;
-    
-    try {
-      cursor = recordDb.openCursor(null, null);
-      DatabaseEntry foundKey = new DatabaseEntry();
-      DatabaseEntry foundData = new DatabaseEntry();
-      
-      while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
-        Record record = deserializeRecord(foundData.getData());
-        if (!records.containsKey(record.getTableName())) {
-          records.put(record.getTableName(), new ArrayList<Record>());
-        }
-        records.get(record.getTableName()).add(record);
-      }
-    }
-    catch (Exception e) {
-    }
-    finally {
-      cursor.close();
-    }
-    
-    return records;
-  }
-  
-  private ArrayList<Record> loadRecords(String tableName) {
-    LinkedHashMap<String, ArrayList<Record>> records = this.loadAllRecords();
-    if (records.containsKey(tableName)) {
-      return records.get(tableName);
-    }
-    return new ArrayList<Record>();
-  }
-  
   // insert into ... queries
   public void insertRecord(String tableName, ArrayList<String> columnNames, ArrayList<Value> values) throws ParseException {
     if (!this.tables.containsKey(tableName)) throw new ParseException(Message.getMessage(Message.NO_SUCH_TABLE));
@@ -322,15 +297,31 @@ public class Schema {
       return false;
     }
     
-    ArrayList<Record> records = this.loadRecords(r.getTableName());
-    if (records.isEmpty()) {
-      return false;
-    }
+    Cursor cursor = null;
     
-    for (Record record: records) {
-      if (isAllColumnsSame(r, record, primaryKeys)) {
-        return true;
+    try {
+      cursor = recordDb.openCursor(null, null);
+      DatabaseEntry foundKey = new DatabaseEntry(r.getTableName().getBytes("UTF-8"));
+      DatabaseEntry foundData = new DatabaseEntry();
+      
+      OperationStatus status = cursor.getSearchKey(foundKey, foundData, LockMode.DEFAULT);
+      if (status != OperationStatus.SUCCESS) {
+        // When there are no inserted primary keys. 
+        return false;
       }
+      
+      do {
+        Record record = deserializeRecord(foundData.getData());
+        if (isAllColumnsSame(r, record, primaryKeys)) {
+          return true;
+        }
+      } while (cursor.get(foundKey, foundData, Get.NEXT_DUP, null) != null);
+    }
+    catch (Exception e) {
+      e.printStackTrace();
+    }
+    finally {
+      cursor.close();
     }
     
     return false;
@@ -351,11 +342,11 @@ public class Schema {
     HashSet<Column> foreignKeys = t.getForeignKeys();
     // <TableName, <ReferencingColumn, ReferencedColumn>>
     LinkedHashMap<String, LinkedHashMap<String, String>> referencedColumns = new LinkedHashMap<String, LinkedHashMap<String, String>>(); 
-    
+
     if (foreignKeys.isEmpty()) {
       return false;
     }
-    
+        
     // Save foreign key columns structure
     for (Column c: t.getForeignKeys()) {
       String tName = c.getReferencing().getReferencedTableName();
@@ -367,7 +358,6 @@ public class Schema {
     }
     
     for (Entry<String, LinkedHashMap<String, String>> entry: referencedColumns.entrySet()) {
-      ArrayList<Record> records = this.loadRecords(entry.getKey());
       boolean isValid = false;
 
       // Check if there is at least one foreign key whose value is null. If so, it's always valid.
@@ -375,17 +365,34 @@ public class Schema {
         continue;
       }
       
-      if (records.isEmpty()) {
-        return true;
-      }
+      Cursor cursor = null;
       
-      for (Record record: records) {
-        // Check if at least one record has the same values with the referencing record on all the foreign keys.
-        if (isAllColumnsSame(r, record, entry.getValue())) {
-          isValid = true;
+      try {
+        cursor = recordDb.openCursor(null, null);
+        DatabaseEntry foundKey = new DatabaseEntry(entry.getKey().getBytes("UTF-8"));
+        DatabaseEntry foundData = new DatabaseEntry();
+        
+        OperationStatus status = cursor.getSearchKey(foundKey, foundData, LockMode.DEFAULT);
+        if (status != OperationStatus.SUCCESS) {
+          // When there are no inserted records in the referenced table, it's always invalid. 
+          return true;
         }
+        
+        do {
+          Record record = deserializeRecord(foundData.getData());
+          if (isAllColumnsSame(r, record, entry.getValue())) {
+            isValid = true;
+            break;
+          }
+        } while (cursor.get(foundKey, foundData, Get.NEXT_DUP, null) != null);
       }
-      
+      catch (Exception e) {
+        e.printStackTrace();
+      }
+      finally {
+        cursor.close();
+      }
+
       if (!isValid) {
         return true;
       }
@@ -428,7 +435,13 @@ public class Schema {
       DatabaseEntry foundKey = new DatabaseEntry(tableName.getBytes("UTF-8"));
       DatabaseEntry foundData = new DatabaseEntry();
       
-      while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
+      OperationStatus status = cursor.getSearchKey(foundKey, foundData, LockMode.DEFAULT);
+      if (status != OperationStatus.SUCCESS) {
+        // When there are no records in the given table. 
+        return new Pair<Integer, Integer>(deleteCnt, failCnt);
+      }
+      
+      do {
         Record record = deserializeRecord(foundData.getData());
         if (record.getTableName().equals(tableName)
             && (bve == null || ThreeValuedLogic.eval(bve.eval(new Pair<Table, Record>(t, record))))) {
@@ -441,7 +454,7 @@ public class Schema {
             failCnt++;
           }
         }
-      }
+      } while (cursor.get(foundKey, foundData, Get.NEXT_DUP, null) != null);
     }
     catch (ParseException pe) {
       throw new ParseException(pe.getMessage());
@@ -463,16 +476,36 @@ public class Schema {
     for (ForeignKey fk: referenced) {
       Table referencingTable = this.getTable(fk.getReferencingTableName());
       Column referencingColumn = referencingTable.getColumn(fk.getReferencingColName());
-      ArrayList<Record> referencingRecords = this.loadRecords(fk.getReferencingTableName());
+
+      // Do not check when referencing columns allow NULL.
+      if (!referencingColumn.isNotNull()) continue;
       
-      // Do not check when there is no referencing records or referencing columns allow NULL.
-      if (referencingRecords.isEmpty() || !referencingColumn.isNotNull()) continue;
+      Cursor cursor = null;
       
-      // Check if at least one referencing column has the NOT NULL constraint.
-      for (Record record: referencingRecords) {
-        if (checkForeignKey(fk, record, r)) {
-          return false;
+      try {
+        cursor = recordDb.openCursor(null, null);
+        DatabaseEntry foundKey = new DatabaseEntry(referencingTable.getName().getBytes("UTF-8"));
+        DatabaseEntry foundData = new DatabaseEntry();
+        
+        OperationStatus status = cursor.getSearchKey(foundKey, foundData, LockMode.DEFAULT);
+        if (status != OperationStatus.SUCCESS) {
+          // When there are no referencing records. 
+          continue;
         }
+        
+        do {
+          Record referencingRecord = deserializeRecord(foundData.getData());
+          // Check if at least one referencing column has the NOT NULL constraint.
+          if (checkForeignKey(fk, referencingRecord, r)) {
+            return false;
+          }
+        } while (cursor.get(foundKey, foundData, Get.NEXT_DUP, null) != null);
+      }
+      catch (Exception e) {
+        e.printStackTrace();
+      }
+      finally {
+        cursor.close();
       }
     }
     
@@ -503,20 +536,25 @@ public class Schema {
       Table referencingTable = this.getTable(fk.getReferencingTableName());
       Cursor cursor = null;
       
-      // Load and delete directly from the database to update records.
       try {
         cursor = recordDb.openCursor(null, null);
         DatabaseEntry foundKey = new DatabaseEntry(referencingTable.getName().getBytes("UTF-8"));
         DatabaseEntry foundData = new DatabaseEntry();
         
-        while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
+        OperationStatus status = cursor.getSearchKey(foundKey, foundData, LockMode.DEFAULT);
+        if (status != OperationStatus.SUCCESS) {
+          // When there are no referencing records. 
+          continue;
+        }
+        
+        do {
           Record referencingRecord = deserializeRecord(foundData.getData());
           if (checkForeignKey(fk, referencingRecord, r)) {
             referencingRecord.setNull(fk.getReferencingColName());
           }
           cursor.delete();
           recordDb.put(null, foundKey, new DatabaseEntry(serializeRecord(referencingRecord)));
-        }
+        } while (cursor.get(foundKey, foundData, Get.NEXT_DUP, null) != null);
       }
       catch (Exception e) {
         e.printStackTrace();

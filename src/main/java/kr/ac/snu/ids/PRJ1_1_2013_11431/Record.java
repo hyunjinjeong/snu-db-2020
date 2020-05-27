@@ -9,10 +9,13 @@ public class Record implements Serializable {
 
   private String tableName;
   private HashMap<String, Value> value;
+  // To support duplicate records, generate random long number.
+  private long _id;
   
   public Record(String tableName) {
     this.tableName = tableName;
     this.value = new HashMap<String, Value>();
+    this._id = (long) (System.currentTimeMillis() + Math.random());
   }
   
   public String getTableName() { return this.tableName; }
