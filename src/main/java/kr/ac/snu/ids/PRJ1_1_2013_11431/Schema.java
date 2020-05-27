@@ -50,6 +50,7 @@ public class Schema {
     
     DatabaseConfig dbConfig = new DatabaseConfig();
     dbConfig.setAllowCreate(true);
+    dbConfig.setSortedDuplicates(false);
     this.db = databaseEnvironment.openDatabase(null, "db", dbConfig);
     
     DatabaseConfig recordDbConfig = new DatabaseConfig();
@@ -171,13 +172,13 @@ public class Schema {
     
     for (Column foreignKey: t.getForeignKeys()) {
       ForeignKey fk = foreignKey.getReferencing();
-      String refedTableName = fk.getTableName();
-      String refedColName = fk.getColName();
+      String refedTableName = fk.getReferencedTableName();
+      String refedColName = fk.getReferencedColName();
       Table refedTable = this.getTable(refedTableName);
       Column refedColumn = refedTable.getColumn(refedColName);
       
       // Remove foreign key relations of referenced columns.
-      refedColumn.removeReferenced(new ForeignKey(tableName, foreignKey.getName()));
+      refedColumn.removeReferenced(new ForeignKey(tableName, foreignKey.getName(), refedTableName, refedColName));
       refedTables.add(refedTable);
     }
     
@@ -199,6 +200,7 @@ public class Schema {
       if (cursor.count() > 0) {
         cursor.delete();
         this.tables.remove(tableName);
+        recordDb.delete(null, key);
       }
     }
     catch (Exception e) {
@@ -219,6 +221,9 @@ public class Schema {
       
       while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
         Record record = deserializeRecord(foundData.getData());
+        if (!records.containsKey(record.getTableName())) {
+          records.put(record.getTableName(), new ArrayList<Record>());
+        }
         records.get(record.getTableName()).add(record);
       }
     }
@@ -318,7 +323,6 @@ public class Schema {
     }
     
     ArrayList<Record> records = this.loadRecords(r.getTableName());
-
     if (records.isEmpty()) {
       return false;
     }
@@ -345,7 +349,6 @@ public class Schema {
   private boolean isBreakingForeignKeyConstraints(Record r) {
     Table t = this.tables.get(r.getTableName());
     HashSet<Column> foreignKeys = t.getForeignKeys();
-    LinkedHashMap<String, ArrayList<Record>> allRecords = this.loadAllRecords();
     // <TableName, <ReferencingColumn, ReferencedColumn>>
     LinkedHashMap<String, LinkedHashMap<String, String>> referencedColumns = new LinkedHashMap<String, LinkedHashMap<String, String>>(); 
     
@@ -355,16 +358,16 @@ public class Schema {
     
     // Save foreign key columns structure
     for (Column c: t.getForeignKeys()) {
-      String tName = c.getReferencing().getTableName();
-      String colName = c.getReferencing().getColName();
-      if (!referencedColumns.containsKey(c.getReferencing().getTableName())) {
+      String tName = c.getReferencing().getReferencedTableName();
+      String colName = c.getReferencing().getReferencedColName();
+      if (!referencedColumns.containsKey(tName)) {
         referencedColumns.put(tName, new LinkedHashMap<String, String>());
       }
       referencedColumns.get(tName).put(c.getName(), colName);
     }
     
     for (Entry<String, LinkedHashMap<String, String>> entry: referencedColumns.entrySet()) {
-      ArrayList<Record> records = allRecords.get(entry.getKey());
+      ArrayList<Record> records = this.loadRecords(entry.getKey());
       boolean isValid = false;
 
       // Check if there is at least one foreign key whose value is null. If so, it's always valid.
@@ -412,38 +415,116 @@ public class Schema {
   }
   
   // delete from ... queries
-  public int deleteRecord(String tableName, Where.BooleanValueExpression bve) throws ParseException {
+  public Pair<Integer, Integer> deleteRecord(String tableName, Where.BooleanValueExpression bve) throws ParseException {
     if (!this.tables.containsKey(tableName)) throw new ParseException(Message.getMessage(Message.NO_SUCH_TABLE));
     
-    if (bve != null) Message.print(bve.toString());
+    Table t = tables.get(tableName);
+    Cursor cursor = null;
+    int deleteCnt = 0;
+    int failCnt = 0;
     
-    return 0;
+    try {
+      cursor = recordDb.openCursor(null, null);
+      DatabaseEntry foundKey = new DatabaseEntry(tableName.getBytes("UTF-8"));
+      DatabaseEntry foundData = new DatabaseEntry();
+      
+      while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
+        Record record = deserializeRecord(foundData.getData());
+        if (record.getTableName().equals(tableName)
+            && (bve == null || ThreeValuedLogic.eval(bve.eval(new Pair<Table, Record>(t, record))))) {
+          if (removable(record)) {
+            cascade(record);
+            cursor.delete();
+            deleteCnt++;
+          }
+          else {
+            failCnt++;
+          }
+        }
+      }
+    }
+    catch (ParseException pe) {
+      throw new ParseException(pe.getMessage());
+    }
+    catch (Exception e) {
+      e.printStackTrace();
+    }
+    finally {
+      cursor.close();
+    }
     
-//    Table t = tables.get(tableName);
-//    Cursor cursor = null;
-//    int deleteCnt = 0;
-//    int failCnt = 0;
-//    
-//    try {
-//      cursor = recordDb.openCursor(null, null);
-//      DatabaseEntry foundKey = new DatabaseEntry(tableName.getBytes("UTF-8"));
-//      DatabaseEntry foundData = new DatabaseEntry();
-//      
-//      while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
-//        Record record = deserializeRecord(foundData.getData());
-//        if (record.getTableName().equals(tableName) && (bve == null || bve.eval(record) == ThreeValuedLogic.TRUE )) {
-//          cursor.delete();
-//          deleteCnt++;
-//        }
-//      }
-//    }
-//    catch (Exception e) {
-//    }
-//    finally {
-//      cursor.close();
-//    }
-//    
-//    return deleteCnt;
+    return new Pair<Integer, Integer>(deleteCnt, failCnt);
+  }
+  
+  private boolean removable(Record r) {
+    Table t = this.getTable(r.getTableName());
+    HashSet<ForeignKey> referenced = t.getReferenced();
+    
+    for (ForeignKey fk: referenced) {
+      Table referencingTable = this.getTable(fk.getReferencingTableName());
+      Column referencingColumn = referencingTable.getColumn(fk.getReferencingColName());
+      ArrayList<Record> referencingRecords = this.loadRecords(fk.getReferencingTableName());
+      
+      // Do not check when there is no referencing records or referencing columns allow NULL.
+      if (referencingRecords.isEmpty() || !referencingColumn.isNotNull()) continue;
+      
+      // Check if at least one referencing column has the NOT NULL constraint.
+      for (Record record: referencingRecords) {
+        if (checkForeignKey(fk, record, r)) {
+          return false;
+        }
+      }
+    }
+    
+    return true;
+  }
+  
+  private boolean checkForeignKey(ForeignKey fk, Record r1, Record r2) {
+    if (!fk.getReferencingTableName().equals(r1.getTableName())) {
+      return false;
+    }
+    if (!fk.getReferencedTableName().equals(r2.getTableName())) {
+      return false;
+    }
+    
+    if (!r1.getValue(fk.getReferencingColName()).equals(r2.getValue(fk.getReferencedColName()))) {
+      return false;
+    }
+    
+    return true;
+  }
+  
+  
+  private void cascade(Record r) {
+    Table t = this.getTable(r.getTableName());
+    HashSet<ForeignKey> referenced = t.getReferenced();
+    
+    for (ForeignKey fk: referenced) {
+      Table referencingTable = this.getTable(fk.getReferencingTableName());
+      Cursor cursor = null;
+      
+      // Load and delete directly from the database to update records.
+      try {
+        cursor = recordDb.openCursor(null, null);
+        DatabaseEntry foundKey = new DatabaseEntry(referencingTable.getName().getBytes("UTF-8"));
+        DatabaseEntry foundData = new DatabaseEntry();
+        
+        while (cursor.getNext(foundKey, foundData, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
+          Record referencingRecord = deserializeRecord(foundData.getData());
+          if (checkForeignKey(fk, referencingRecord, r)) {
+            referencingRecord.setNull(fk.getReferencingColName());
+          }
+          cursor.delete();
+          recordDb.put(null, foundKey, new DatabaseEntry(serializeRecord(referencingRecord)));
+        }
+      }
+      catch (Exception e) {
+        e.printStackTrace();
+      }
+      finally {
+        cursor.close();
+      }
+    }
   }
   
   // select from ... queries

@@ -93,12 +93,21 @@ public class Table implements Serializable {
     for (int i = 0; i < colNames.size(); i++) {
       Column refCol = this.columns.get(colNames.get(i));
       Column refedCol = refedTable.getColumn(refedColNames.get(i));
-      refCol.setForeign(new ForeignKey(refedTableName, refedCol.getName()));
-      refedCol.addReferenced(new ForeignKey(this.name, refCol.getName()));
+      refCol.setForeign(new ForeignKey(this.name, refCol.getName(), refedTableName, refedCol.getName()));
+      refedCol.addReferenced(new ForeignKey(this.name, refCol.getName(), refedTableName, refedCol.getName()));
     }
     
     refedTable.setReferened();
     schema.addTable(refedTable);
+  }
+  
+  public HashSet<ForeignKey> getReferenced() {
+    HashSet<ForeignKey> referenced = new HashSet<ForeignKey>();
+    for (Entry<String, Column> entry: this.columns.entrySet()) {
+      Column c = entry.getValue();
+      referenced.addAll(c.getReferenced());
+    }
+    return referenced;
   }
   
   @Override

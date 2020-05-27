@@ -15,12 +15,12 @@ public class Where {
       this.booleanTerms.add(booleanTerm);
     }
     
-    public int eval(Record record) {
+    public int eval(Pair<Table, Record> pair) throws ParseException {
       // Default boolean for 'OR'
       int res = ThreeValuedLogic.FALSE;
       
       for (BooleanTerm booleanTerm: booleanTerms) {
-        res = ThreeValuedLogic.and(res, booleanTerm.eval(record));
+        res = ThreeValuedLogic.or(res, booleanTerm.eval(pair));
       }
       
       return res;
@@ -49,12 +49,12 @@ public class Where {
       this.booleanFactors.add(booleanFactor);
     }
     
-    public int eval(Record record) {
+    public int eval(Pair<Table, Record> pair) throws ParseException {
       // Default boolean for 'AND'
       int res = ThreeValuedLogic.TRUE;
       
       for (BooleanFactor booleanFactor: booleanFactors) {
-        res = ThreeValuedLogic.and(res, booleanFactor.eval(record));
+        res = ThreeValuedLogic.and(res, booleanFactor.eval(pair));
       }
       
       return res;
@@ -89,8 +89,8 @@ public class Where {
       this.isNot = true;
     }
     
-    public int eval(Record record) {
-      int res = booleanTest.eval(record);
+    public int eval(Pair<Table, Record> pair) throws ParseException {
+      int res = booleanTest.eval(pair);
       return isNot ? ThreeValuedLogic.not(res) : res;
     }
     
@@ -105,7 +105,7 @@ public class Where {
   
   
   public static interface BooleanTest {
-    public int eval(Record record);
+    public int eval(Pair<Table, Record> pair) throws ParseException;
   }
   
   
@@ -120,8 +120,8 @@ public class Where {
       this.booleanValueExpression = booleanValueExpression;
     }
     
-    public int eval(Record record) {
-      return this.booleanValueExpression.eval(record);
+    public int eval(Pair<Table, Record> pair) throws ParseException {
+      return this.booleanValueExpression.eval(pair);
     }
     
     @Override
@@ -132,7 +132,7 @@ public class Where {
   
   
   public static interface Predicate extends BooleanTest {
-    public int eval(Record record);
+    public int eval(Pair<Table, Record> pair) throws ParseException;
   }
   
   
@@ -159,16 +159,30 @@ public class Where {
       this.op = op;
     }
     
-    public int eval(Record record) {
+    public int eval(Pair<Table, Record> pair) throws ParseException {
       Value rightOperand;
-      
+      String tableName = pair.first().getName();
+      Record record = pair.second(); 
+          
       // Check the cases for the right hand side operand.
       if (right instanceof Value) {
         rightOperand = (Value) right;
       }
       else {
-        ColumnInTable rightColumn = (ColumnInTable) right; 
+        ColumnInTable rightColumn = (ColumnInTable) right;
+        
+        if (rightColumn.getTableName() != null && !rightColumn.getTableName().equals(tableName)) {
+          throw new ParseException(Message.getMessage(Message.WHERE_TABLE_NOT_SPECIFIED));
+        }
+        
         rightOperand = record.getValue(rightColumn.getColumnName());
+        if (rightOperand == null) {
+          throw new ParseException(Message.getMessage(Message.WHERE_COLUMN_NOT_EXIST));
+        }
+      }
+      
+      if (!left.canCompare(rightOperand)) {
+        throw new ParseException(Message.getMessage(Message.WHERE_INCOMPARABLE_ERROR));
       }
       
       // Comparison with NULL values leads to UNKNOWN.
@@ -257,7 +271,20 @@ public class Where {
       this.isNot = true;
     }
     
-    public int eval(Record record) {
+    public int eval(Pair<Table, Record> pair) throws ParseException {
+      Record record = pair.second();
+      String tableName = pair.first().getName();
+      
+      if (left.getTableName() != null && !left.getTableName().equals(tableName)) {
+        throw new ParseException(Message.getMessage(Message.WHERE_TABLE_NOT_SPECIFIED));
+      }
+      
+      Value leftOperand = record.getValue(left.getColumnName());
+  
+      if (leftOperand == null) {
+        throw new ParseException(Message.getMessage(Message.WHERE_COLUMN_NOT_EXIST));
+      }
+      
       // On null operation cases.
       if (this.isNullOperation) {
         Value v = record.getValue(left.getColumnName());
@@ -266,8 +293,7 @@ public class Where {
         }
         return isNot? ThreeValuedLogic.TRUE : ThreeValuedLogic.FALSE;
       }
-      
-      Value leftOperand = record.getValue(left.getColumnName());
+          
       Value rightOperand;
       
       // Check the cases for the right hand side operand.
@@ -277,6 +303,13 @@ public class Where {
       else {
         ColumnInTable rightColumn = (ColumnInTable) right; 
         rightOperand = record.getValue(rightColumn.getColumnName());
+        if (rightOperand == null) {
+          throw new ParseException(Message.getMessage(Message.WHERE_TABLE_NOT_SPECIFIED));
+        }
+      }
+      
+      if (!leftOperand.canCompare(rightOperand)) {
+        throw new ParseException(Message.getMessage(Message.WHERE_INCOMPARABLE_ERROR));
       }
       
       // Comparison with NULL values leads to UNKNOWN.

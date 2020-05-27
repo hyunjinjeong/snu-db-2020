@@ -52,7 +52,8 @@ public class Column implements Serializable {
   public ForeignKey getReferencing() { return this.referencing; }
   
   public void setForeign(ForeignKey key) {
-    this.referencing = new ForeignKey(key.getTableName(), key.getColName());
+    this.referencing = new ForeignKey(key.getReferencingTableName(), key.getReferencingColName(),
+        key.getReferencedTableName(), key.getReferencedColName());
     this.isForeign = true;
   }
   

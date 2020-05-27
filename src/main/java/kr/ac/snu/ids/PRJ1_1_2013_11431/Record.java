@@ -2,6 +2,7 @@ package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.Map.Entry;
 
 public class Record implements Serializable {
   private static final long serialVersionUID = 1L;
@@ -18,4 +19,15 @@ public class Record implements Serializable {
   public Value getValue(String colName) { return this.value.get(colName); }
   
   public void addValue(String colName, Value v) { this.value.put(colName, v); }
+  public void setNull(String colName) { this.value.get(colName).setType(new Type(Type.NullType)); }
+  
+  @Override
+  public String toString() {
+    String res = "[" + tableName + "] - ";
+    for (Entry<String, Value> entry: value.entrySet()) {
+      res += entry.getKey() + ": ";
+      res += entry.getValue().toString() + ", ";
+    }
+    return res;
+  }
 }

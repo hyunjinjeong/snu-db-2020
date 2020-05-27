@@ -57,4 +57,14 @@ public class Value implements Serializable, Where.CompOperand {
     }
     return 0;
   }
+  
+  public boolean canCompare(Value that) {
+    if (this.isNull() || that.isNull()) {
+      return true;
+    }
+    if (!this.type.getType().equals(that.getType().getType())) {
+      return false;
+    }
+    return true;
+  }
 }

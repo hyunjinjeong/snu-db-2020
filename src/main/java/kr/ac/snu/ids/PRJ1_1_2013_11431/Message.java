@@ -24,6 +24,10 @@ public class Message {
   public static final int INSERT_COLUMN_NON_NULLABLE_ERROR = 21;
   public static final int INSERT_DUPLICATE_PRIMARY_KEY_ERROR = 22;
   public static final int INSERT_REFERENTIAL_INTEGRITY_ERROR = 23;
+  public static final int WHERE_INCOMPARABLE_ERROR = 24;
+  public static final int WHERE_TABLE_NOT_SPECIFIED = 25;
+  public static final int WHERE_COLUMN_NOT_EXIST = 26;
+  public static final int DELETE_REFERENTIAL_INTEGRITY_PASSED = 27;
   
   public static void print(String msg) {
     System.out.println(msg);
@@ -74,6 +78,12 @@ public class Message {
         return "Insertion has failed: Primary key duplication";
       case INSERT_REFERENTIAL_INTEGRITY_ERROR:
         return "Insertion has failed: Referential integrity violation";
+      case WHERE_INCOMPARABLE_ERROR:
+        return "Where clause try to compare incomparable values";
+      case WHERE_TABLE_NOT_SPECIFIED:
+        return "Where clause try to reference tables which are not specified";
+      case WHERE_COLUMN_NOT_EXIST:
+        return "Where clause try to reference non existing column";
       default:
         return "Undefined Message";
     }
@@ -106,6 +116,8 @@ public class Message {
     {
       case DELETE_RESULT:
         return "[" + Integer.toString(number) + "] row(s) are deleted";
+      case DELETE_REFERENTIAL_INTEGRITY_PASSED:
+        return "[" + Integer.toString(number) + "] row(s) are not deleted due to referential integrity";
       default:
         return "Undefined MEssage";
     }

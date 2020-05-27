@@ -905,7 +905,9 @@ Value value() :
 void deleteQuery() :
 {
   String msg;
+  Pair<Integer, Integer> result;
   int deleteCnt;
+  int failCnt;
   String tableName;
   Where.BooleanValueExpression bve = null;
 }
@@ -919,16 +921,28 @@ void deleteQuery() :
   (
     < END >
     {
-      deleteCnt = schema.deleteRecord(tableName, bve);
+      result = schema.deleteRecord(tableName, bve);
+      deleteCnt = result.first();
+      failCnt = result.second();
       msg = Message.getMessage(Message.DELETE_RESULT, deleteCnt);
       Message.print(msg);
+      if (failCnt > 0) {
+        msg = Message.getMessage(Message.DELETE_REFERENTIAL_INTEGRITY_PASSED, failCnt);
+        Message.print(msg);
+      }
       Message.printPrompt();
     }
   | < SEMICOLON >
     {
-      deleteCnt = schema.deleteRecord(tableName, bve);
+      result = schema.deleteRecord(tableName, bve);
+      deleteCnt = result.first();
+      failCnt = result.second();
       msg = Message.getMessage(Message.DELETE_RESULT, deleteCnt);
       Message.print(msg);
+      if (failCnt > 0) {
+        msg = Message.getMessage(Message.DELETE_REFERENTIAL_INTEGRITY_PASSED, failCnt);
+        Message.print(msg);
+      }
     }  )
 }
 /*
