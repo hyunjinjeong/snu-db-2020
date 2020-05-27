@@ -4,7 +4,6 @@ public class Message {
   public static final int SYNTAX_ERROR = 0;
   public static final int CREATE_TABLE_SUCCESS = 1;
   public static final int DROP_SUCCESS = 2;
-  public static final int SELECT = 4;
   public static final int INSERT_RESULT = 5;
   public static final int DELETE_RESULT = 6;
   public static final int SHOW_TABLES_NO_TABLE = 7;
@@ -52,8 +51,6 @@ public class Message {
     {
       case SYNTAX_ERROR:
         return "Syntax error";
-      case SELECT:
-        return "'SELECT' requested";
       case INSERT_RESULT:
         return "The row is inserted";
       case TABLE_EXISTENCE_ERROR:

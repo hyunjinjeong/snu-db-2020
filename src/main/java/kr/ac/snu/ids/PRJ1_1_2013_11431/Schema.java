@@ -568,9 +568,161 @@ public class Schema {
     }
   }
   
-  // select from ... queries
-  public void selectRecords(Select select, Where.BooleanValueExpression bve) {
+  public String selectRecords(Select select, Where.BooleanValueExpression bve) throws ParseException {
+    String res = "";
+    ArrayList<Cursor> cursorList = new ArrayList<>();
+    ArrayList<Record> recordList = new ArrayList<>();
+    int numOfTables = select.getFromTables().size();
+
+    ArrayList<Integer> columnPrintLength = new ArrayList<>();
+    ArrayList<ColumnInTable> columns = new ArrayList<>();
+    ArrayList<String> columnNames = new ArrayList<>();
+
+    // Project all columns
+    if (select.getSelectedColumns().isEmpty()) {
+      columns = select.getAllColumns();
+      for (ColumnInTable cit: columns) {
+        String colName = cit.getColumn().getName();
+        int length = Math.max(colName.length(), 10 + colName.length() % 2);
+        columnPrintLength.add(length);
+        columnNames.add(colName);
+      }
+    }
+    else {
+      for (Pair<String, String> columnAliasPair : select.getSelectedColumns()) {
+        ColumnInTable cit = select.getColumn(columnAliasPair.first());
+        String colName = columnAliasPair.second();
+
+        int length = Math.max(colName.length(), 10 + colName.length() % 2);
+        columnPrintLength.add(length);
+        columns.add(cit);
+        columnNames.add(colName);
+      }
+    }
+
+    String line = "+";
+    for (int length: columnPrintLength) {
+      for (int i = 0; i < length + 2; i++) {
+        line += "-";
+      }
+      line += "+";
+    }
+
+    res += line + "\n";
+    String header = "|";
+    for (int i = 0; i < columns.size(); i++) {
+      header += " ";
+      header += center(columnNames.get(i).toUpperCase(), columnPrintLength.get(i));
+      header += " ";
+      header += "|";
+    }
+    res += header + "\n";
+    res += line + "\n";
+
+    Cursor cursor = null;
     
+    try {
+      for (Pair<String, String> tableAliasPair : select.getFromTables()) {
+        cursor = recordDb.openCursor(null, null);
+        cursorList.add(cursor);
+        DatabaseEntry key = new DatabaseEntry(tableAliasPair.first().getBytes("UTF-8"));
+        DatabaseEntry data = new DatabaseEntry();
+
+        OperationStatus os = cursor.getSearchKey(key, data, LockMode.DEFAULT);
+        if (os != OperationStatus.SUCCESS) {
+          String row = "|";
+          for (int i = 0; i < columns.size(); i++) {
+            row += " ";
+            row += center("", columnPrintLength.get(i));
+            row += " ";
+            row += "|";
+          }
+          res += row + "\n";
+          res += line;
+          
+          for (Cursor c: cursorList) {
+            c.close();
+          }
+          
+          return res;
+        }
+        
+        Record r = deserializeRecord(data.getData());
+        recordList.add(r);
+      }
+    } 
+    catch (Exception e) {
+      e.printStackTrace();
+      for (Cursor c: cursorList) {
+        c.close();
+      }
+    }
+
+    int cnt = 0;
+    do {
+      if (ThreeValuedLogic.eval(bve.eval(recordList))) {
+        String row = "|";
+        for (int i = 0; i < columns.size(); i++) {
+          ColumnInTable cit = columns.get(i);
+          row += " ";
+          row += String.format("%-" + columnPrintLength.get(i) + "s", recordList.get(cit.getIndex()).getValue(cit.getColumn().getName()));
+          row += " ";
+          row += "|";
+        }
+        res += row + "\n";
+        cnt++;
+      }
+    } while (joinRecords(select, cursorList, recordList, numOfTables - 1));
+
+    if (cnt == 0) {
+      String row = "|";
+      for (int i = 0; i < columns.size(); i++) {
+        row += " ";
+        row += center("", columnPrintLength.get(i));
+        row += " ";
+        row += "|";
+      }
+      res += row + "\n";
+    }
+    res += line;
+
+    for (Cursor c: cursorList) {
+      c.close();
+    }
+
+    return res;
+  }
+  
+  private String center(String text, int len) {
+    String out = String.format("%" + len + "s%s%" + len + "s", "", text, "");
+    float mid = out.length() / 2;
+    float start = mid - len/2;
+    float end = start + len; 
+    return out.substring((int)start, (int)end);
+  }
+
+  private boolean joinRecords(Select select, ArrayList<Cursor> cursorList, ArrayList<Record> recordList, int index) {
+    if (index < 0) return false;
+
+    Cursor cursor = cursorList.get(index);
+    DatabaseEntry key = new DatabaseEntry();
+    DatabaseEntry data = new DatabaseEntry();
+
+    try {
+      if (cursor.get(key, data, Get.NEXT_DUP, null) == null) {
+        key = new DatabaseEntry(select.getFromTables().get(index).first().getBytes("UTF-8"));
+        cursor.getSearchKey(key, data, LockMode.DEFAULT);
+        if (!joinRecords(select, cursorList, recordList, index - 1))
+          return false;
+      }
+      Record r = deserializeRecord(data.getData());
+      recordList.set(index, r);
+    }
+    catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return true;
   }
   
   // Int, Date

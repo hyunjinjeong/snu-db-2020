@@ -460,15 +460,13 @@ void selectQuery() :
   (
     < END >
     {
-      schema.selectRecords(select, bve);
-      msg = Message.getMessage(Message.SELECT);
+      msg = schema.selectRecords(select, bve);
       Message.print(msg);
       Message.printPrompt();
     }
   | < SEMICOLON >
     {
-      schema.selectRecords(select, bve);
-      msg = Message.getMessage(Message.SELECT);
+      msg = schema.selectRecords(select, bve);
       Message.print(msg);
     }  )
 }
