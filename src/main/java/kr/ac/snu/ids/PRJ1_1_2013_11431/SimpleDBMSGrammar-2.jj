@@ -449,7 +449,6 @@ void showTablesQuery() :
 void selectQuery() :
 {
   String msg;
-  String tableName;
   SelectUtil selectUtil = new SelectUtil();
   Where.BooleanValueExpression bve = new Where.BooleanValueExpression();
 }
@@ -705,7 +704,6 @@ void columnInTablePredicate(SelectUtil selectUtil, Where.BooleanFactor bf) :
   String colName;
   ColumnInTable cit;
   String op;
-  boolean isNullOperation;
 }
 {
   colName = columnInTable()
@@ -882,7 +880,7 @@ Pair<ArrayList<String>, ArrayList<Value>> insertColumnAndSource() :
   )?
   values = valueList()
   {
-    return new Pair(columnNames, values);
+    return new Pair<ArrayList<String>, ArrayList<Value>>(columnNames, values);
   }
 }
 
