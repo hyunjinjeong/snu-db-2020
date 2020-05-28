@@ -124,7 +124,6 @@ public class Schema {
       cursor.put(key, data);
     }
     catch (Exception e) {
-      e.printStackTrace();
     }
     finally {
       cursor.close();
@@ -142,7 +141,6 @@ public class Schema {
       cursor.put(key, data);
     }
     catch (Exception e) {
-      e.printStackTrace();
     }
     finally {
       cursor.close();
@@ -331,7 +329,6 @@ public class Schema {
       } while (cursor.get(foundKey, foundData, Get.NEXT_DUP, null) != null);
     }
     catch (Exception e) {
-      e.printStackTrace();
     }
     finally {
       cursor.close();
@@ -400,7 +397,6 @@ public class Schema {
         } while (cursor.get(foundKey, foundData, Get.NEXT_DUP, null) != null);
       }
       catch (Exception e) {
-        e.printStackTrace();
       }
       finally {
         cursor.close();
@@ -476,7 +472,6 @@ public class Schema {
       throw new ParseException(pe.getMessage());
     }
     catch (Exception e) {
-      e.printStackTrace();
     }
     finally {
       cursor.close();
@@ -519,7 +514,6 @@ public class Schema {
         } while (cursor.get(foundKey, foundData, Get.NEXT_DUP, null) != null);
       }
       catch (Exception e) {
-        e.printStackTrace();
       }
       finally {
         cursor.close();
@@ -577,7 +571,6 @@ public class Schema {
         } while (cursor.get(foundKey, foundData, Get.NEXT_DUP, null) != null);
       }
       catch (Exception e) {
-        e.printStackTrace();
       }
       finally {
         cursor.close();
@@ -609,7 +602,7 @@ public class Schema {
         String colName = cit.getColumn().getName();
         
         // Check if the length is odd or even to align center beautifully.
-        int length = Math.max(colName.length(), 10 + colName.length() % 2);
+        int length = Math.max(colName.length(), 14 + colName.length() % 2);
         columnPrintLength.add(length);
         columnAlias.add(colName);
       }
@@ -620,7 +613,7 @@ public class Schema {
         String colName = columnAliasPair.second();
         
         // Check if the length is odd or even to align center beautifully.
-        int length = Math.max(colName.length(), 10 + colName.length() % 2);
+        int length = Math.max(colName.length(), 14 + colName.length() % 2);
         columnPrintLength.add(length);
         columns.add(cit);
         columnAlias.add(colName);
@@ -681,52 +674,50 @@ public class Schema {
         Record r = deserializeRecord(data.getData());
         recordList.add(r);
       }
+      
+      int cnt = 0;
+      do {
+        // If a joined record satisfies WHERE condition, print it.
+        if (ThreeValuedLogic.eval(bve.eval(recordList))) {
+          String row = "|";
+          for (int i = 0; i < columns.size(); i++) {
+            ColumnInTable cit = columns.get(i);
+            row += " ";
+            row += String.format("%-" + columnPrintLength.get(i) + "s", recordList.get(cit.getIndex()).getValue(cit.getColumn().getName()).toString());
+            row += " ";
+            row += "|";
+          }
+          res += row + "\n";
+          cnt++;
+        }
+      } while (joinRecords(selectUtil, cursorList, recordList, numOfTables - 1));
+
+      // When there is no record to print, add empty line to the result string.
+      if (cnt == 0) {
+        String row = "|";
+        for (int i = 0; i < columns.size(); i++) {
+          row += " ";
+          row += center("", columnPrintLength.get(i));
+          row += " ";
+          row += "|";
+        }
+        res += row + "\n";
+      }
+      res += line;
     } 
     catch (Exception e) {
-      e.printStackTrace();
+    }
+    finally {
+      // Close all opened cursors.
       for (Cursor c: cursorList) {
         c.close();
       }
     }
 
-    int cnt = 0;
-    do {
-      // If a joined record satisfies WHERE condition, print it.
-      if (ThreeValuedLogic.eval(bve.eval(recordList))) {
-        String row = "|";
-        for (int i = 0; i < columns.size(); i++) {
-          ColumnInTable cit = columns.get(i);
-          row += " ";
-          row += String.format("%-" + columnPrintLength.get(i) + "s", recordList.get(cit.getIndex()).getValue(cit.getColumn().getName()));
-          row += " ";
-          row += "|";
-        }
-        res += row + "\n";
-        cnt++;
-      }
-    } while (joinRecords(selectUtil, cursorList, recordList, numOfTables - 1));
-
-    // When there is no record to print, add empty line to the result string.
-    if (cnt == 0) {
-      String row = "|";
-      for (int i = 0; i < columns.size(); i++) {
-        row += " ";
-        row += center("", columnPrintLength.get(i));
-        row += " ";
-        row += "|";
-      }
-      res += row + "\n";
-    }
-    res += line;
-
-    for (Cursor c: cursorList) {
-      c.close();
-    }
-
     return res;
   }
   
-  // Util function to center align string.
+  // Utility function to center align string.
   private String center(String text, int len) {
     String out = String.format("%" + len + "s%s%" + len + "s", "", text, "");
     float mid = out.length() / 2;
@@ -759,7 +750,6 @@ public class Schema {
       recordList.set(index, r);
     }
     catch (Exception e) {
-      e.printStackTrace();
     }
 
     return true;

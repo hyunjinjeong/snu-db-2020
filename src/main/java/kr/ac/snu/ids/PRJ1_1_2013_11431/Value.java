@@ -37,17 +37,6 @@ public class Value implements Serializable, Where.CompOperand {
       return false;
     }
   }
-
-  @Override
-  public String toString() {
-    if (this.type.getType().equals(Type.IntType)) {
-      return Integer.toString(this.intValue);
-    }
-    if (this.type.getType().equals(Type.CharType)) {
-      return "'" + this.stringValue + "'";
-    }
-    return this.stringValue;
-  }
   
   public int compare(Value that) {
     if (this.type.getType().equals(Type.IntType)) {
@@ -69,5 +58,13 @@ public class Value implements Serializable, Where.CompOperand {
       return false;
     }
     return true;
+  }
+  
+  @Override
+  public String toString() {
+    if (this.type.getType().equals(Type.IntType)) {
+      return Integer.toString(this.intValue);
+    }
+    return this.stringValue;
   }
 }

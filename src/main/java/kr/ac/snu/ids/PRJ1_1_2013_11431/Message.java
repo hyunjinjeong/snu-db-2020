@@ -97,23 +97,23 @@ public class Message {
     switch(q)
     {
       case CREATE_TABLE_SUCCESS:
-        return "[" + name + "] table is created";
+        return "'" + name + "' table is created";
       case DROP_SUCCESS:
-        return "[" + name + "] table is dropped";
+        return "'" + name + "' table is dropped";
       case DROP_REFERENCED_TABLE_ERROR:
-        return "Drop table has failed: [" + name + "] is referenced by other table";
+        return "Drop table has failed: '" + name + "' is referenced by other table";
       case NON_EXISTING_COLUMN_ERROR:
-        return "Create table has failed: [" + name + "] does not exist in column definition";
+        return "Create table has failed: '" + name + "' does not exist in column definition";
       case INSERT_COLUMN_EXISTENCE_ERROR:
-        return "Insertion has failed: [" + name + "] does not exist";
+        return "Insertion has failed: '" + name + "' does not exist";
       case INSERT_COLUMN_NON_NULLABLE_ERROR:
-        return "Insertion has failed: [" + name + "] is not nullable";
+        return "Insertion has failed: '" + name + "' is not nullable";
       case SELECT_TABLE_EXISTENCE_ERROR:
-        return "Selection has failed: [" + name + "] does not exist";
+        return "Selection has failed: '" + name + "' does not exist";
       case SELECT_DUPLICATE_TABLE_ALIAS_ERROR:
-        return "Selection has failed: Not unique table/alias [" + name + "]";
+        return "Selection has failed: Not unique table/alias '" + name + "'";
       case SELECT_COLUMN_RESOLVE_ERROR:
-        return "Selection has failed: fail to resolve [" + name + "]";
+        return "Selection has failed: fail to resolve '" + name + "'";
       default:
         return "Undefined Message";
     }
@@ -124,9 +124,9 @@ public class Message {
     switch(q)
     {
       case DELETE_RESULT:
-        return "[" + Integer.toString(number) + "] row(s) are deleted";
+        return Integer.toString(number) + " row(s) are deleted";
       case DELETE_REFERENTIAL_INTEGRITY_PASSED:
-        return "[" + Integer.toString(number) + "] row(s) are not deleted due to referential integrity";
+        return Integer.toString(number) + " row(s) are not deleted due to referential integrity";
       default:
         return "Undefined MEssage";
     }
