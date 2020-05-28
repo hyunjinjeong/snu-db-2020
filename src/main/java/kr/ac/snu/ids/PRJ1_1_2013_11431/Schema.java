@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
@@ -57,10 +56,12 @@ public class Schema {
     
     DatabaseConfig recordDbConfig = new DatabaseConfig();
     recordDbConfig.setAllowCreate(true);
+    // Allow duplicates for records.
     recordDbConfig.setSortedDuplicates(true);
     this.recordDb = databaseEnvironment.openDatabase(null, "records", recordDbConfig);
   }
   
+  // Close databases on exit.
   public void closeDatabase() {
     if (recordDb != null) {
       recordDb.close();
@@ -93,10 +94,13 @@ public class Schema {
       cursor.close();
     }
   }
-  
-  public boolean isTableReferenced(String tableName) {
-    Table t = this.getTable(tableName);
-    return t.isReferenced();
+
+  // Get a table with its name.
+  public Table getTable(String name) {
+    if (this.tables.containsKey(name)) {
+      return tables.get(name);
+    }
+    return null;
   }
 
   // Create a table and add it to DB.
@@ -107,6 +111,7 @@ public class Schema {
     this.addTable(t);
   }
   
+  // Save a table to DB.
   public void addTable(Table t) {
     this.tables.put(t.getName(), t);
     
@@ -126,6 +131,7 @@ public class Schema {
     }
   }
   
+  // Add a record to DB.
   public void addRecord(String tableName, Record r) {
     Cursor cursor = null;
     
@@ -210,6 +216,7 @@ public class Schema {
       if (cursor.count() > 0) {
         cursor.delete();
         this.tables.remove(tableName);
+        // Related records should be also deleted when the table gets deleted.
         recordDb.delete(null, key);
       }
     }
@@ -220,7 +227,7 @@ public class Schema {
     }
   }
   
-  // insert into ... queries
+  // INSERT INTO ... queries
   public void insertRecord(String tableName, ArrayList<String> columnNames, ArrayList<Value> values) throws ParseException {
     if (!this.tables.containsKey(tableName)) throw new ParseException(Message.getMessage(Message.NO_SUCH_TABLE));
     
@@ -235,11 +242,13 @@ public class Schema {
     }
     else {
       if (columnNames.size() != t.getAllColumns().size()) {
+        // Column sizes are different.
         throw new ParseException(Message.getMessage(Message.INSERT_TYPE_MISMATCH_ERROR));
       }
       
       for (String colName: columnNames) {
         if (!t.hasColumn(colName)) {
+          // Inserting into a column that doesn't exist.
           throw new ParseException(Message.getMessage(Message.INSERT_COLUMN_EXISTENCE_ERROR, colName));
         }
         columns.add(t.getColumn(colName));
@@ -247,6 +256,7 @@ public class Schema {
     }
     
     if (columns.size() != values.size()) {
+      // A column list size mismatches with a value list size.  
       throw new ParseException(Message.getMessage(Message.INSERT_TYPE_MISMATCH_ERROR));
     }
     
@@ -256,16 +266,17 @@ public class Schema {
       Column c = columns.get(i);
       Value v = values.get(i);
       
-      // Deal with null cases.
       if (c.isNotNull() && v.isNull()) {
+        // Deal with null cases.
         throw new ParseException(Message.getMessage(Message.INSERT_COLUMN_NON_NULLABLE_ERROR, c.getName()));
       }
       
       if(!v.isNull() && !c.getType().getType().equals(v.getType().getType())) {
+        // Columns and Values have different types.
         throw new ParseException(Message.getMessage(Message.INSERT_TYPE_MISMATCH_ERROR));
       }
       
-      // Truncate values of CHAR types.
+      // Truncate values of CHAR types if the length is longer than max length of the column.
       if (c.getType().getType().equals(Type.CharType) && !v.isNull()) {
         String stringValue = v.getStringValue();
         int limitLength = c.getType().getLength();
@@ -313,6 +324,7 @@ public class Schema {
       
       do {
         Record record = deserializeRecord(foundData.getData());
+        // Primary keys are the same each other only if all the values are the same.
         if (isAllColumnsSame(r, record, primaryKeys)) {
           return true;
         }
@@ -331,7 +343,6 @@ public class Schema {
   private boolean isAllColumnsSame(Record r, Record r2, HashSet<String> colNames) {
     for (String colName: colNames) {
       if (!r.getValue(colName).equals(r2.getValue(colName))) {
-        // Primary keys are the same each other only if all the values are the same.
         return false;
       }
     }
@@ -341,7 +352,7 @@ public class Schema {
   private boolean isBreakingForeignKeyConstraints(Record r) {
     Table t = this.tables.get(r.getTableName());
     HashSet<Column> foreignKeys = t.getForeignKeys();
-    // <TableName, <ReferencingColumn, ReferencedColumn>>
+    // <TableName, <ReferencingColumn, ReferencedColumn>> - to save the structure for referencing and referenced columns.
     LinkedHashMap<String, LinkedHashMap<String, String>> referencedColumns = new LinkedHashMap<String, LinkedHashMap<String, String>>(); 
 
     if (foreignKeys.isEmpty()) {
@@ -381,6 +392,7 @@ public class Schema {
         
         do {
           Record record = deserializeRecord(foundData.getData());
+          // Check all the foreign key columns reference existing values. Partial equality is not enough.
           if (isAllColumnsSame(r, record, entry.getValue())) {
             isValid = true;
             break;
@@ -414,7 +426,6 @@ public class Schema {
   private boolean isAllColumnsSame(Record r, Record r2, LinkedHashMap<String, String> colNames) {
     for (Entry<String, String> entry: colNames.entrySet()) {
       if (!r.getValue(entry.getKey()).equals(r2.getValue(entry.getValue()))) {
-        // Check all the foreign keys reference existing values.
         return false;
       }
     }
@@ -422,11 +433,12 @@ public class Schema {
     return true;
   }
   
-  // delete from ... queries
+  // DELET FROM ... queries
   public Pair<Integer, Integer> deleteRecord(String tableName, Where.BooleanValueExpression bve) throws ParseException {
     if (!this.tables.containsKey(tableName)) throw new ParseException(Message.getMessage(Message.NO_SUCH_TABLE));
     
     Cursor cursor = null;
+    // Return the pair of the number of success and fail count.
     int deleteCnt = 0;
     int failCnt = 0;
     HashSet<String> tableNameSet = new HashSet<String>();
@@ -460,6 +472,7 @@ public class Schema {
       } while (cursor.get(foundKey, foundData, Get.NEXT_DUP, null) != null);
     }
     catch (ParseException pe) {
+      // Catch ParseException from Where and propagate it.
       throw new ParseException(pe.getMessage());
     }
     catch (Exception e) {
@@ -472,6 +485,7 @@ public class Schema {
     return new Pair<Integer, Integer>(deleteCnt, failCnt);
   }
   
+  // Decide if a given column can be removed by checking foreign key constraints.
   private boolean removable(Record r) {
     Table t = this.getTable(r.getTableName());
     HashSet<ForeignKey> referenced = t.getReferenced();
@@ -515,6 +529,7 @@ public class Schema {
     return true;
   }
   
+  // Check whether given two records are in a foreign key relationship.
   private boolean checkForeignKey(ForeignKey fk, Record r1, Record r2) {
     if (!fk.getReferencingTableName().equals(r1.getTableName())) {
       return false;
@@ -530,7 +545,7 @@ public class Schema {
     return true;
   }
   
-  
+  // Cascade delete according the specification pdf file.
   private void cascade(Record r) {
     Table t = this.getTable(r.getTableName());
     HashSet<ForeignKey> referenced = t.getReferenced();
@@ -553,9 +568,11 @@ public class Schema {
         do {
           Record referencingRecord = deserializeRecord(foundData.getData());
           if (checkForeignKey(fk, referencingRecord, r)) {
+            // Set the value of columns of referencing records to NULL.
             referencingRecord.setNull(fk.getReferencingColName());
           }
           cursor.delete();
+          // Also update the records in DB. 
           recordDb.put(null, foundKey, new DatabaseEntry(serializeRecord(referencingRecord)));
         } while (cursor.get(foundKey, foundData, Get.NEXT_DUP, null) != null);
       }
@@ -568,38 +585,49 @@ public class Schema {
     }
   }
   
-  public String selectRecords(Select select, Where.BooleanValueExpression bve) throws ParseException {
+  // SELECT ... queries.
+  public String selectRecords(SelectUtil selectUtil, Where.BooleanValueExpression bve) throws ParseException {
     String res = "";
-    ArrayList<Cursor> cursorList = new ArrayList<>();
-    ArrayList<Record> recordList = new ArrayList<>();
-    int numOfTables = select.getFromTables().size();
+    // The cursor list used to join records. 
+    ArrayList<Cursor> cursorList = new ArrayList<Cursor>();
+    // The record list of the tables. 
+    ArrayList<Record> recordList = new ArrayList<Record>();
+    // The number of tables in the FROM clause.
+    int numOfTables = selectUtil.getFromTables().size();
 
-    ArrayList<Integer> columnPrintLength = new ArrayList<>();
-    ArrayList<ColumnInTable> columns = new ArrayList<>();
-    ArrayList<String> columnNames = new ArrayList<>();
+    // Save lengths for the printing format.
+    ArrayList<Integer> columnPrintLength = new ArrayList<Integer>();
+    // Columns to print.
+    ArrayList<ColumnInTable> columns = new ArrayList<ColumnInTable>();
+    // Column alias of the columns above to print.
+    ArrayList<String> columnAlias = new ArrayList<String>();
 
     // Project all columns
-    if (select.getSelectedColumns().isEmpty()) {
-      columns = select.getAllColumns();
+    if (selectUtil.getSelectedColumns().isEmpty()) {
+      columns = selectUtil.getAllColumns();
       for (ColumnInTable cit: columns) {
         String colName = cit.getColumn().getName();
+        
+        // Check if the length is odd or even to align center beautifully.
         int length = Math.max(colName.length(), 10 + colName.length() % 2);
         columnPrintLength.add(length);
-        columnNames.add(colName);
+        columnAlias.add(colName);
       }
     }
     else {
-      for (Pair<String, String> columnAliasPair : select.getSelectedColumns()) {
-        ColumnInTable cit = select.getColumn(columnAliasPair.first());
+      for (Pair<String, String> columnAliasPair : selectUtil.getSelectedColumns()) {
+        ColumnInTable cit = selectUtil.getColumn(columnAliasPair.first());
         String colName = columnAliasPair.second();
-
+        
+        // Check if the length is odd or even to align center beautifully.
         int length = Math.max(colName.length(), 10 + colName.length() % 2);
         columnPrintLength.add(length);
         columns.add(cit);
-        columnNames.add(colName);
+        columnAlias.add(colName);
       }
     }
 
+    // Skeleton line string.
     String line = "+";
     for (int length: columnPrintLength) {
       for (int i = 0; i < length + 2; i++) {
@@ -609,10 +637,11 @@ public class Schema {
     }
 
     res += line + "\n";
+    // Print the header of the table.
     String header = "|";
     for (int i = 0; i < columns.size(); i++) {
       header += " ";
-      header += center(columnNames.get(i).toUpperCase(), columnPrintLength.get(i));
+      header += center(columnAlias.get(i).toUpperCase(), columnPrintLength.get(i));
       header += " ";
       header += "|";
     }
@@ -622,14 +651,16 @@ public class Schema {
     Cursor cursor = null;
     
     try {
-      for (Pair<String, String> tableAliasPair : select.getFromTables()) {
+      for (Pair<String, String> tableAliasPair : selectUtil.getFromTables()) {
         cursor = recordDb.openCursor(null, null);
         cursorList.add(cursor);
+        // Use name to search a real table in Pair <name, alias>.
         DatabaseEntry key = new DatabaseEntry(tableAliasPair.first().getBytes("UTF-8"));
         DatabaseEntry data = new DatabaseEntry();
 
         OperationStatus os = cursor.getSearchKey(key, data, LockMode.DEFAULT);
         if (os != OperationStatus.SUCCESS) {
+          // When there is no record to print, add empty line to the result string.
           String row = "|";
           for (int i = 0; i < columns.size(); i++) {
             row += " ";
@@ -660,6 +691,7 @@ public class Schema {
 
     int cnt = 0;
     do {
+      // If a joined record satisfies WHERE condition, print it.
       if (ThreeValuedLogic.eval(bve.eval(recordList))) {
         String row = "|";
         for (int i = 0; i < columns.size(); i++) {
@@ -672,8 +704,9 @@ public class Schema {
         res += row + "\n";
         cnt++;
       }
-    } while (joinRecords(select, cursorList, recordList, numOfTables - 1));
+    } while (joinRecords(selectUtil, cursorList, recordList, numOfTables - 1));
 
+    // When there is no record to print, add empty line to the result string.
     if (cnt == 0) {
       String row = "|";
       for (int i = 0; i < columns.size(); i++) {
@@ -693,6 +726,7 @@ public class Schema {
     return res;
   }
   
+  // Util function to center align string.
   private String center(String text, int len) {
     String out = String.format("%" + len + "s%s%" + len + "s", "", text, "");
     float mid = out.length() / 2;
@@ -701,7 +735,8 @@ public class Schema {
     return out.substring((int)start, (int)end);
   }
 
-  private boolean joinRecords(Select select, ArrayList<Cursor> cursorList, ArrayList<Record> recordList, int index) {
+  // Join records using back tracking from end to start.
+  private boolean joinRecords(SelectUtil select, ArrayList<Cursor> cursorList, ArrayList<Record> recordList, int index) {
     if (index < 0) return false;
 
     Cursor cursor = cursorList.get(index);
@@ -709,13 +744,18 @@ public class Schema {
     DatabaseEntry data = new DatabaseEntry();
 
     try {
+      // Move to the next table if retrieval of records with the given table has done.
       if (cursor.get(key, data, Get.NEXT_DUP, null) == null) {
         key = new DatabaseEntry(select.getFromTables().get(index).first().getBytes("UTF-8"));
         cursor.getSearchKey(key, data, LockMode.DEFAULT);
-        if (!joinRecords(select, cursorList, recordList, index - 1))
+        
+        if (!joinRecords(select, cursorList, recordList, index - 1)) {
           return false;
+        }
       }
+      
       Record r = deserializeRecord(data.getData());
+      // Update record of the recordList.
       recordList.set(index, r);
     }
     catch (Exception e) {
@@ -725,12 +765,12 @@ public class Schema {
     return true;
   }
   
-  // Int, Date
+  // Int, Date types
   public Type getType(String type) {
     return new Type(type);
   }
   
-  // Char
+  // Char types
   public Type getType(String type, int length) throws ParseException {
     if (length < 1) {
       throw new ParseException(Message.getMessage(Message.CHAR_LENGTH_ERROR));
@@ -738,17 +778,7 @@ public class Schema {
     return new Type(type, length);
   }
   
-  public boolean isEmpty() {
-    return tables.isEmpty();
-  }
-  
-  public Table getTable(String name) {
-    if (this.tables.containsKey(name)) {
-      return tables.get(name);
-    }
-    return null;
-  }
-  
+  // Add a column to the table schema.
   public void addColumn(Table t, Column c) throws ParseException {
     if (t.getAllColumns().containsKey(c.getName())) {
       throw new ParseException(Message.getMessage(Message.DUPLICATE_COLUMN_DEF_ERROR));
@@ -756,14 +786,17 @@ public class Schema {
     t.addColumn(c);;
   }
   
+  // Set the type of a column in the table schema.
   public void setType(Table t, String colName, Type type) {
     t.getColumn(colName).setType(type);
   }
   
+  // Set Not NULL of a column in the table schema.
   public void setNotNull(Table t, String colName) {
     t.getColumn(colName).setNotNull();
   }
   
+  // Add primary key to the table schema.
   public void addPrimaryKeys(Table t, ArrayList<String> colList) throws ParseException {
     if (t.hasPrimaryKey()) {
       throw new ParseException(Message.getMessage(Message.DUPLICATE_PRIMARY_KEY_ERROR));
@@ -784,6 +817,7 @@ public class Schema {
     t.addPrimaryKeys(colList);
   }
   
+  // Add foreign key relationships to the table schema.
   public void addForeignKeys(ArrayList<String> referencing, ArrayList<String> referenced, Table refTable, String refedTableName) throws ParseException {
     String invalidColName = usesNonExistingColumn(referencing, refTable);
     if (invalidColName != null) throw new ParseException(Message.getMessage(Message.NON_EXISTING_COLUMN_ERROR, invalidColName));
@@ -852,8 +886,7 @@ public class Schema {
     }
     
     return false;
-  }
-  
+  }  
   
   private static byte[] serializeTable(Table t) throws IOException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -876,7 +909,7 @@ public class Schema {
     oos.writeObject(r);
     return baos.toByteArray();
   }
-  
+
   private static Record deserializeRecord(byte[] t) throws ClassNotFoundException, IOException {
     ByteArrayInputStream bais = new ByteArrayInputStream(t);
     ObjectInputStream ois = new ObjectInputStream(bais);

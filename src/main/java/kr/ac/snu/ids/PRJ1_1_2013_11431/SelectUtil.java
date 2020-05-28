@@ -3,9 +3,11 @@ package kr.ac.snu.ids.PRJ1_1_2013_11431;
 import java.util.ArrayList;
 import java.util.Map.Entry;
 
-// Util class for select and where.
-public class Select {
+// Utility class for SELECT and WHERE.
+public class SelectUtil {
+  // <TableName, Alias>
   private ArrayList<Pair<String, String>> fromTables = new ArrayList<Pair<String, String>>();
+  // <ColumnName, Alias>
   private ArrayList<Pair<String, String>> selectedColumns = new ArrayList<Pair<String, String>>();
   
   public ArrayList<Pair<String, String>> getFromTables() {
@@ -24,6 +26,7 @@ public class Select {
     this.selectedColumns.add(new Pair<String, String>(colName, alias));
   }
   
+  // Get the index of tables.
   public ArrayList<Integer> getIndices(String tName) {
     ArrayList<Integer> indices = new ArrayList<>();
 
@@ -37,6 +40,7 @@ public class Select {
     return indices;
   }
   
+  // Get all the columns of fromTables.
   public ArrayList<ColumnInTable> getAllColumns() {
     Schema schema = Schema.getSchema();
     ArrayList<ColumnInTable> columns = new ArrayList<ColumnInTable>();
@@ -51,6 +55,7 @@ public class Select {
     return columns;
   }
   
+  // Get the column with its name.
   public ColumnInTable getColumn(String colName) throws ParseException {
     String[] cit = colName.split("\\.");
     String tName = null;
@@ -83,7 +88,8 @@ public class Select {
     return res;
   }
   
-  public ColumnInTable getColumn(ArrayList<Integer> indices, String colName) throws ParseException {
+  // Helper function
+  private ColumnInTable getColumn(ArrayList<Integer> indices, String colName) throws ParseException {
     Schema schema = Schema.getSchema();
     ColumnInTable cit = null;
     Column c = null;

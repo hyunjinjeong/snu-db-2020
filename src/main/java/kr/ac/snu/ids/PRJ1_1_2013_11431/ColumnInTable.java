@@ -1,5 +1,6 @@
 package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
+// Class representing ColumnInTable.
 public class ColumnInTable implements Where.CompOperand {
   private Column column;
   private int index;

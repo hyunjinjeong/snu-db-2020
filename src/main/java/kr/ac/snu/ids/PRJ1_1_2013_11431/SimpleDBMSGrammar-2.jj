@@ -450,43 +450,43 @@ void selectQuery() :
 {
   String msg;
   String tableName;
-  Select select = new Select();
+  SelectUtil selectUtil = new SelectUtil();
   Where.BooleanValueExpression bve = new Where.BooleanValueExpression();
 }
 {
   < SELECT >
-  selectList(select)
-  tableExpression(select, bve)
+  selectList(selectUtil)
+  tableExpression(selectUtil, bve)
   (
     < END >
     {
-      msg = schema.selectRecords(select, bve);
+      msg = schema.selectRecords(selectUtil, bve);
       Message.print(msg);
       Message.printPrompt();
     }
   | < SEMICOLON >
     {
-      msg = schema.selectRecords(select, bve);
+      msg = schema.selectRecords(selectUtil, bve);
       Message.print(msg);
     }  )
 }
 
-void selectList(Select select) :
+void selectList(SelectUtil selectUtil) :
 {}
 {
   (
     < ASTERISK >
   | (
-      selectedColumn(select)
+      selectedColumn(selectUtil)
       (
         < COMMA >
-        selectedColumn(select)
+        selectedColumn(selectUtil)
       )*
     )
   )
 }
 
-void selectedColumn(Select select) :
+void selectedColumn(SelectUtil selectUtil) :
 {
   String colName;
   String alias;
@@ -501,7 +501,7 @@ void selectedColumn(Select select) :
     alias = columnName()
   )?
   {
-    select.addSelectedColumns(colName, alias);
+    selectUtil.addSelectedColumns(colName, alias);
   }
 }
 
@@ -535,15 +535,15 @@ String columnInTable() :
   }
 }
 
-void tableExpression(Select select, Where.BooleanValueExpression bve) :
+void tableExpression(SelectUtil selectUtil, Where.BooleanValueExpression bve) :
 {}
 {
   (
-    fromClause(select)
+    fromClause(selectUtil)
     {
-      for (Pair<String, String> columnAliasPair: select.getSelectedColumns()) {
+      for (Pair<String, String> columnAliasPair: selectUtil.getSelectedColumns()) {
         try { 
-          ColumnInTable cit = select.getColumn(columnAliasPair.first());
+          ColumnInTable cit = selectUtil.getColumn(columnAliasPair.first());
         }
         catch (ParseException pe) {
           throw new ParseException(Message.getMessage(Message.SELECT_COLUMN_RESOLVE_ERROR, columnAliasPair.first()));  
@@ -551,32 +551,32 @@ void tableExpression(Select select, Where.BooleanValueExpression bve) :
       }
     }
     (
-      whereClause(select, bve)
+      whereClause(selectUtil, bve)
     )?
   )
 }
 
-void fromClause(Select select) :
+void fromClause(SelectUtil selectUtil) :
 {}
 {
   < FROM >
-  tableReferenceList(select)
+  tableReferenceList(selectUtil)
 }
 
-void tableReferenceList(Select select) :
+void tableReferenceList(SelectUtil selectUtil) :
 {
   HashSet<String> tableSet = new HashSet<String>();
 }
 {
   (
-    referedTable(select)
+    referedTable(selectUtil)
     (
       < COMMA >
-      referedTable(select)
+      referedTable(selectUtil)
     )*
   )
   {
-    for (Pair<String, String> nameAliasPair: select.getFromTables()) {
+    for (Pair<String, String> nameAliasPair: selectUtil.getFromTables()) {
       if (schema.getTable(nameAliasPair.first()) == null) {
         throw new ParseException(Message.getMessage(Message.SELECT_TABLE_EXISTENCE_ERROR, nameAliasPair.first()));
       }
@@ -588,7 +588,7 @@ void tableReferenceList(Select select) :
   }
 }
 
-void referedTable(Select select) :
+void referedTable(SelectUtil selectUtil) :
 {
   String tName;
   String alias;
@@ -605,43 +605,43 @@ void referedTable(Select select) :
     )?
   )
   {
-    select.addFromTables(tName, alias);    
+    selectUtil.addFromTables(tName, alias);    
   }
 }
 
-void whereClause(Select select, Where.BooleanValueExpression bve) :
+void whereClause(SelectUtil selectUtil, Where.BooleanValueExpression bve) :
 {}
 {
   < WHERE >
-  booleanValueExpression(select, bve)
+  booleanValueExpression(selectUtil, bve)
 }
 
-void booleanValueExpression(Select select, Where.BooleanValueExpression bve) :
+void booleanValueExpression(SelectUtil selectUtil, Where.BooleanValueExpression bve) :
 {}
 {
-  booleanTerm(select, bve)
+  booleanTerm(selectUtil, bve)
   (
     < OR >
-    booleanTerm(select, bve)
+    booleanTerm(selectUtil, bve)
   )*
 }
 
-void booleanTerm(Select select, Where.BooleanValueExpression bve) :
+void booleanTerm(SelectUtil selectUtil, Where.BooleanValueExpression bve) :
 {
   Where.BooleanTerm bt = new Where.BooleanTerm();
 }
 {
-  booleanFactor(select, bt)
+  booleanFactor(selectUtil, bt)
   (
     < AND >
-    booleanFactor(select, bt)
+    booleanFactor(selectUtil, bt)
   )*
   {
     bve.addBooleanTerm(bt);
   }
 }
 
-void booleanFactor(Select select, Where.BooleanTerm bt) :
+void booleanFactor(SelectUtil selectUtil, Where.BooleanTerm bt) :
 {
   Where.BooleanFactor bf = new Where.BooleanFactor();
 }
@@ -652,35 +652,35 @@ void booleanFactor(Select select, Where.BooleanTerm bt) :
       bf.setIsNot();
     }
   )?
-  booleanTest(select, bf)
+  booleanTest(selectUtil, bf)
   {
     bt.addBooleanFactor(bf);
   }
 }
 
-void booleanTest(Select select, Where.BooleanFactor bf) :
+void booleanTest(SelectUtil selectUtil, Where.BooleanFactor bf) :
 {}
 {
   (
-    predicate(select, bf)
-  | parenthesizedBooleanExpression(select, bf)
+    predicate(selectUtil, bf)
+  | parenthesizedBooleanExpression(selectUtil, bf)
   )
 }
 
-void parenthesizedBooleanExpression(Select select, Where.BooleanFactor bf) :
+void parenthesizedBooleanExpression(SelectUtil selectUtil, Where.BooleanFactor bf) :
 {
   Where.BooleanValueExpression bve = new Where.BooleanValueExpression();
 }
 {
   < LEFT_PAREN >
-  booleanValueExpression(select, bve)
+  booleanValueExpression(selectUtil, bve)
   < RIGHT_PAREN >
   {
     bf.setBooleanTest(bve);
   }
 }
 
-void predicate(Select select, Where.BooleanFactor bf) :
+void predicate(SelectUtil selectUtil, Where.BooleanFactor bf) :
 {}
 {
   /*
@@ -694,12 +694,12 @@ void predicate(Select select, Where.BooleanFactor bf) :
      <COMPARABLE VALUE PREDICATE> ::= <COMPARABLE VALUE> <COMP OP> <COMP OPERAND>    
   */
   (
-    columnInTablePredicate(select, bf)
-  | comparableValuePredicate(select, bf)
+    columnInTablePredicate(selectUtil, bf)
+  | comparableValuePredicate(selectUtil, bf)
   )
 }
 
-void columnInTablePredicate(Select select, Where.BooleanFactor bf) :
+void columnInTablePredicate(SelectUtil selectUtil, Where.BooleanFactor bf) :
 {
   Where.ColumnInTablePredicate citp = new Where.ColumnInTablePredicate();
   String colName;
@@ -710,7 +710,7 @@ void columnInTablePredicate(Select select, Where.BooleanFactor bf) :
 {
   colName = columnInTable()
   {
-    cit = select.getColumn(colName);
+    cit = selectUtil.getColumn(colName);
     citp.setLeft(cit);
   }
   (
@@ -719,7 +719,7 @@ void columnInTablePredicate(Select select, Where.BooleanFactor bf) :
       {
         citp.setOp(op);
       }
-      compOperandCit(select, citp)
+      compOperandCit(selectUtil, citp)
     )
     |
     (
@@ -734,7 +734,7 @@ void columnInTablePredicate(Select select, Where.BooleanFactor bf) :
   }
 }
 
-void comparableValuePredicate(Select select, Where.BooleanFactor bf) :
+void comparableValuePredicate(SelectUtil selectUtil, Where.BooleanFactor bf) :
 {
   Where.ComparableValuePredicate cvp = new Where.ComparableValuePredicate();
   Value left;
@@ -749,13 +749,13 @@ void comparableValuePredicate(Select select, Where.BooleanFactor bf) :
   {
     cvp.setOp(op);
   }
-  compOperand(select, cvp)
+  compOperand(selectUtil, cvp)
   {
     bf.setBooleanTest(cvp);
   }
 }
 
-void compOperandCit(Select select, Where.ColumnInTablePredicate citp) :
+void compOperandCit(SelectUtil selectUtil, Where.ColumnInTablePredicate citp) :
 {
   Value v;
   ColumnInTable cit;
@@ -768,12 +768,12 @@ void compOperandCit(Select select, Where.ColumnInTablePredicate citp) :
   }
 | colName = columnInTable()
   {
-    cit = select.getColumn(colName);
+    cit = selectUtil.getColumn(colName);
     citp.setRight(cit);
   }
 }
 
-void compOperand(Select select, Where.ComparableValuePredicate cvp) :
+void compOperand(SelectUtil selectUtil, Where.ComparableValuePredicate cvp) :
 {
   Value v;
   ColumnInTable cit;
@@ -787,7 +787,7 @@ void compOperand(Select select, Where.ComparableValuePredicate cvp) :
 | colName = columnInTable()
   {
     
-    cit = select.getColumn(colName);
+    cit = selectUtil.getColumn(colName);
     cvp.setRight(cit);
   }
 }
@@ -931,7 +931,7 @@ Value value() :
 void deleteQuery() :
 {
   String msg;
-  Select select = new Select();
+  SelectUtil selectUtil = new SelectUtil();
   Pair<Integer, Integer> result;
   int deleteCnt;
   int failCnt;
@@ -946,10 +946,10 @@ void deleteQuery() :
     if (schema.getTable(tableName) == null) {
       throw new ParseException(Message.getMessage(Message.NO_SUCH_TABLE));
     }
-    select.addFromTables(tableName, tableName);
+    selectUtil.addFromTables(tableName, tableName);
   }
   (
-    whereClause(select, bve)
+    whereClause(selectUtil, bve)
   )?
   (
     < END >

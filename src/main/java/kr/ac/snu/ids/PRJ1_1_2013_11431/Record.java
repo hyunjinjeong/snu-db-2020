@@ -4,12 +4,13 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
+// Class to save records.
 public class Record implements Serializable {
   private static final long serialVersionUID = 1L;
 
   private String tableName;
   private HashMap<String, Value> value;
-  // To support duplicate records, generate random long number.
+  // To support duplicate values, generate a random long number.
   private long _id;
   
   public Record(String tableName) {

@@ -2,6 +2,7 @@ package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
 import java.io.Serializable;
 
+// Class for types.
 public class Type implements Serializable {
   private static final long serialVersionUID = 1L;
   

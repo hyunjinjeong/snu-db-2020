@@ -1,8 +1,22 @@
 package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 
+/*
+ *  Class to save the structure of the WHERE clause.
+ *  The structure is like below.
+ *  NOTE: The Predicate structure was modified in Project 1-1. 
+ *  
+ *  BooleanValueExpression ::= BooleanTerm (or BooleanTerm)*
+ *  BooleanTerm ::= BooleanFactor (and BooleanFactor)*
+ *  BooleanFactor ::= [not] BooleanTest
+ *  BooleanTest ::= Predicate | ParenthesizedBooleanExpression
+ *  Predicate ::= ComparableValuePredicate | ColumnInTablePredicate
+ *  ComparableValuePredicate ::= Value CompOp CompOperand
+ *  ColumnInTablePredicate ::= ColumnInTable ((CompOp CompOperand) | NullOperation)
+ *  ParenthesizedBooleanExpression ::= BooleanValueExpression
+ *  
+ */
 public class Where {
   
   public static class BooleanValueExpression implements BooleanTest {
@@ -21,6 +35,7 @@ public class Where {
     }
     
     public int eval(ArrayList<Record> records) throws ParseException {
+      // No expression equals TRUE.
       if (this.hasNoExpression()) {
         return ThreeValuedLogic.TRUE;
       }

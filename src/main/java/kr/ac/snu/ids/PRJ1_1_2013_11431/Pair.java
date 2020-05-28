@@ -1,5 +1,6 @@
 package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
+// Pair Class to save two data with different types.  
 public class Pair<K, V> {
   private K first;
   private V second;

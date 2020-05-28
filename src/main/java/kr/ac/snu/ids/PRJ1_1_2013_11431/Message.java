@@ -119,7 +119,7 @@ public class Message {
     }
   }
   
-  // Messages supporting int arguments.
+  // Messages supporting an integer argument.
   public static String getMessage(int q, int number) {
     switch(q)
     {

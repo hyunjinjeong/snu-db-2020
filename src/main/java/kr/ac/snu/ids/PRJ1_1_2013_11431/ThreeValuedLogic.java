@@ -1,5 +1,6 @@
 package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
+// Class to evaluate Three Valued Logic.
 public class ThreeValuedLogic {
   public static final int TRUE = 0;
   public static final int FALSE = 1;

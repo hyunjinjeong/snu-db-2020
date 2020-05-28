@@ -2,6 +2,7 @@ package kr.ac.snu.ids.PRJ1_1_2013_11431;
 
 import java.io.Serializable;
 
+// Class for values.
 public class Value implements Serializable, Where.CompOperand {
   private static final long serialVersionUID = 1L;
   
@@ -58,7 +59,9 @@ public class Value implements Serializable, Where.CompOperand {
     return 0;
   }
   
+  // Check if it can be compared with the THAT value.
   public boolean canCompare(Value that) {
+    // Null values are always comparable.
     if (this.isNull() || that.isNull()) {
       return true;
     }
