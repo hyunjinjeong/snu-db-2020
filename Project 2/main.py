@@ -1,11 +1,11 @@
 from database import load_db
-from commands import map_commands
+from actions import map_actions
 
 
 # 초기 메시지 생성
 def get_initial_message():
     message = ''
-    command_message = {
+    action_message = {
         1: 'print all buildings',
         2: 'print all performances',
         3: 'print all audiences',
@@ -26,18 +26,18 @@ def get_initial_message():
 
     message += '============================================================\n'
     for i in range(1, 17):
-        temp_message = f'{i}. {command_message[i]}\n'
+        temp_message = f'{i}. {action_message[i]}\n'
         message += temp_message
     message += '============================================================'
     return message
 
 
 # 유저가 입력한 번호에 따라 명령 실행
-def execute_command(db, cmd):
-    if not 1 <= cmd <= 16:
+def execute_action(db, action):
+    if not 1 <= action <= 16:
         print('Invalid action')
         return
-    map_commands[cmd](db)
+    map_actions[action](db)
 
 
 # 프로그램 종료
@@ -51,13 +51,13 @@ if __name__ == '__main__':
     print(get_initial_message())
     
     while True:
-        command = input('Select your action: ')    
-        if not command.isdigit():
+        action = input('Select your action: ')    
+        if not action.isdigit():
             print('Invalid action')
             continue
 
-        command = int(command)
-        if command == 15:
+        action = int(action)
+        if action == 15:
             exit_db(db)
             break
-        execute_command(db, command)
+        execute_action(db, action)

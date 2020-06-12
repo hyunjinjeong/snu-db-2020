@@ -379,8 +379,8 @@ def format_results(type, results):
     return res
 
 
-# command 번호와 해당하는 함수 맵핑
-map_commands = {
+# action 번호에 해당하는 함수 맵핑
+map_actions = {
     1: print_all_buildings,
     2: print_all_performances,
     3: print_all_audiences,
