@@ -1,7 +1,8 @@
 from database import load_db
-from commands import *
+from commands import map_commands
 
 
+# 초기 메시지 생성
 def get_initial_message():
     message = ''
     command_message = {
@@ -31,7 +32,7 @@ def get_initial_message():
     return message
 
 
-# 명령 실행
+# 유저가 입력한 번호에 따라 명령 실행
 def execute_command(db, cmd):
     if not 1 <= cmd <= 16:
         print('Invalid action')
@@ -39,6 +40,7 @@ def execute_command(db, cmd):
     map_commands[cmd](db)
 
 
+# 프로그램 종료
 def exit_db(db):
     del db
     print('Bye!')

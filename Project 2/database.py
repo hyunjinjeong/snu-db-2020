@@ -17,6 +17,7 @@ class Database:
         cls.instance = cls._get_instance
         return cls._instance
 
+    # 데이터베이스 초기화
     def __init__(self):
         self._connection = pymysql.connect(
             host='astronaut.snu.ac.kr',
@@ -28,6 +29,7 @@ class Database:
             cursorclass=pymysql.cursors.DictCursor)
         self._initialize_database()
     
+    # 클래스 삭제할 때 connection close
     def __del__(self):
         self.connection.close()
     
@@ -35,6 +37,7 @@ class Database:
     def connection(self):
         return self._connection
     
+    # 테이블 스키마 초기화 생성
     def _initialize_database(self):
         with self.connection.cursor() as cursor:
             # TABLE이 없으면 생성.
@@ -89,7 +92,7 @@ class Database:
             for sql in sqls:
                 cursor.execute(sql)
     
-    # reset 시 테이블의 모든 데이터 삭제
+    # reset 시 모든 테이블 DROP 후 다시 초기화
     def reset(self):
         with self.connection.cursor() as cursor:
             sql = 'DROP TABLE book, assign, building, performance, audience;'
@@ -97,12 +100,14 @@ class Database:
             self._initialize_database()
             self.connection.commit()
 
+    # SELECT 쿼리. 결과 반환.
     def fetch(self, sql):
         with self.connection.cursor() as cursor:
             cursor.execute(sql)
             result = cursor.fetchall()
             return result
     
+    # INSERT, DELETE 쿼리
     def execute(self, sql):
         with self.connection.cursor() as cursor:
             cursor.execute(sql)
