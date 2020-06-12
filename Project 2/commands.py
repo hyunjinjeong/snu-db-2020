@@ -1,21 +1,31 @@
 def print_all_buildings(db):
-    sql = '''
-        SELECT * FROM building;
-    '''
-    print(db.fetch(sql))
+    building_sql = 'SELECT id, name, location, capacity FROM building;'
+    buildings = db.fetch(building_sql)
+
+    for building in buildings:
+        building_id = building['id']
+        count_assign_sql = f'SELECT COUNT(*) as count FROM assign WHERE building_id = {building_id};'
+        count = db.fetch(count_assign_sql)[0]['count']
+        building['assigned'] = count
+
+    print(buildings)
 
 
 def print_all_performances(db):
-    sql = '''
-        SELECT * FROM performance;
-    '''
-    print(db.fetch(sql))
+    performance_sql = 'SELECT id, name, type, price FROM performance;'
+    performances = db.fetch(performance_sql)
+
+    for performance in performances:
+        performance_id = performance['id']
+        count_book_sql = f'SELECT COUNT(*) as count FROM book WHERE performance_id = {performance_id};'
+        count = db.fetch(count_book_sql)[0]['count']
+        performance['booked'] = count
+
+    print(performances)
 
 
 def print_all_audiences(db):
-    sql = '''
-        SELECT * FROM audience;
-    '''
+    sql = 'SELECT id, name, gender, age FROM audience;'
     print(db.fetch(sql))
 
 
@@ -134,9 +144,7 @@ def assign_performance(db):
         print(f"Performance {performance_id} doesn't exist")
         return
     
-    check_sql = f'SELECT COUNT(*) AS count FROM assign WHERE performance_id = {performance_id};'
-    count = db.fetch(check_sql)[0]['count']
-    if count > 0:
+    if is_performance_assigned(db, performance_id):
         print(f'Performance {performance_id} is already assigned')
         return
     
@@ -146,11 +154,95 @@ def assign_performance(db):
     print('Successfully assign a performance')
 
 
+def is_performance_assigned(db, performance_id):
+    check_sql = f'SELECT COUNT(*) AS count FROM assign WHERE performance_id = {performance_id};'
+    count = db.fetch(check_sql)[0]['count']
+    if count > 0:
+        return True
+    return False
+
+
 def book_performance(db):
     performance_id = int(input('Performance ID: '))
+    if performance_not_exists(db, performance_id):
+        print(f"Performance {performance_id} doesn't exist")
+        return
+    if not is_performance_assigned(db, performance_id):
+        print(f"Performance {performance_id} isn't assigned")
+        return
+
     audience_id = int(input('Audience id: '))
-    seat_numbers = list(map(int, input('Seat number: ')))
+    if audience_not_exists(db, audience_id):
+        print(f"Audience {audience_id} doesn't exist")
+        return
+
+    capacity = get_capacity_by_performance(db, performance_id)
+    seat_numbers = list(map(int, input('Seat number: ').replace(" ", "").split(",")))
+    if is_seat_numbers_invalid(capacity, seat_numbers):
+        print('Seat number out of range')
+        return
+    if is_seat_numbers_taken(db, performance_id, seat_numbers):
+        print('The seat is already taken')
+        return
+    
+    total_ticket_price = 0
+    for seat_number in seat_numbers:
+        insert_sql = f'INSERT INTO book (performance_id, audience_id, seat_number) VALUES ({performance_id}, {audience_id}, {seat_number});'
+        db.execute(insert_sql)
+        total_ticket_price += calculate_ticket_price(db, performance_id, audience_id)
+    total_ticket_price = get_round(total_ticket_price)
+    
     print('Successfully book a performance')
+    print(f'Total ticket price is {total_ticket_price:,}')
+
+
+def get_capacity_by_performance(db, performance_id):
+    get_building_id_sql = f'SELECT building_id FROM assign WHERE performance_id = {performance_id};'
+    building_id = db.fetch(get_building_id_sql)[0]['building_id']
+
+    get_capacity_sql = f'SELECT capacity FROM building WHERE id = {building_id};'
+    capacity = db.fetch(get_capacity_sql)[0]['capacity']
+    return capacity
+
+
+def is_seat_numbers_invalid(capacity, seat_numbers):
+    for seat_number in seat_numbers:
+        if not 1 <= seat_number <= capacity:
+            return True
+    return False
+
+
+def is_seat_numbers_taken(db, performance_id, seat_numbers):
+    for seat_number in seat_numbers:
+        sql = f'SELECT COUNT(*) as count FROM book WHERE performance_id = {performance_id} AND seat_number = {seat_number};'
+        count = db.fetch(sql)[0]['count']
+        if count > 0:
+            return True
+    return False
+
+
+def calculate_ticket_price(db, performance_id, audience_id):
+    price_sql = f'SELECT price FROM performance WHERE id = {performance_id};'
+    age_sql = f'SELECT age FROM audience WHERE id = {audience_id};'
+    
+    original_price = db.fetch(price_sql)[0]['price']
+    age = db.fetch(age_sql)[0]['age']
+
+    if 1 <= age <= 7:
+        return 0
+    if 8 <= age <= 12:
+        return original_price * 0.5
+    if 13 <= age <= 18:
+        return original_price * 0.2
+    return original_price
+
+
+# Python의 round 방식에 따른 문제 때문에 직접 구현.
+# 문제 ex) round(4.5) = 4, round(3.5) = 4
+def get_round(num):
+    if num - int(num) >= 0.5:
+        return int(num) + 1
+    return int(num)
 
 
 def print_assigned_performances(db):
