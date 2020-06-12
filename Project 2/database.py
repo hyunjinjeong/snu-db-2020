@@ -61,7 +61,35 @@ class Database:
                     gender VARCHAR(1) NOT NULL,
                     age INT NOT NULL
                 );
-            ''', 'SET sql_notes = 1']
+            ''', '''
+                CREATE TABLE IF NOT EXISTS assign (
+                    performance_id INT PRIMARY KEY,
+                    building_id INT NOT NULL,
+                    CONSTRAINT `fk_assign_building`
+                        FOREIGN KEY (building_id) REFERENCES building (id)
+                        ON DELETE CASCADE
+                        ON UPDATE CASCADE,
+                    CONSTRAINT `fk_assign_performance`
+                        FOREIGN KEY (performance_id) REFERENCES performance (id)
+                        ON DELETE CASCADE
+                        ON UPDATE CASCADE
+                );
+            ''', '''
+                CREATE TABLE IF NOT EXISTS book (
+                    performance_id INT NOT NULL,
+                    audience_id INT NOT NULL,
+                    seat_number INT NOT NULL,
+                    PRIMARY KEY (performance_id, seat_number),
+                    CONSTRAINT `fk_book_performance`
+                        FOREIGN KEY (performance_id) REFERENCES assign (performance_id)
+                        ON DELETE CASCADE
+                        ON UPDATE CASCADE,
+                    CONSTRAINT `fk_book_audience`
+                        FOREIGN KEY (audience_id) REFERENCES audience (id)
+                        ON DELETE CASCADE
+                        ON UPDATE CASCADE
+                );
+            ''', 'SET sql_notes = 1;']
             for sql in sqls:
                 cursor.execute(sql)
     
