@@ -28,23 +28,28 @@ def add_building(db):
         print('Capacity should be more than 0')
         return
 
-    sql = f'INSERT INTO building (name, location, capacity) VALUES ("{name}", "{location}", {capacity})'
+    sql = f'INSERT INTO building (name, location, capacity) VALUES ("{name}", "{location}", {capacity});'
     db.execute(sql)
     print('A building is successfully inserted')
 
 
 def remove_building(db):
     building_id = int(input('Building id: '))
-    check_sql = f'SELECT COUNT(*) AS count FROM building WHERE id = {building_id}'
-    count = db.fetch(check_sql)[0]['count']
-
-    if count == 0:
+    if buildig_not_exists(db, building_id):
         print(f"Building {building_id} doesn't exist")
         return
 
-    remove_sql = f'DELETE FROM building WHERE id = {building_id}'
+    remove_sql = f'DELETE FROM building WHERE id = {building_id};'
     db.execute(remove_sql)
     print('A building is successfully removed')
+
+
+def buildig_not_exists(db, building_id):
+    check_sql = f'SELECT COUNT(*) AS count FROM building WHERE id = {building_id};'
+    count = db.fetch(check_sql)[0]['count']
+    if count == 0:
+        return True
+    return False
 
 
 def add_performance(db):
@@ -56,60 +61,88 @@ def add_performance(db):
         print('Price should be 0 or more')
         return
 
-    sql = f'INSERT INTO performance (name, type, price) values ("{name}", "{type}", {price})'
+    sql = f'INSERT INTO performance (name, type, price) values ("{name}", "{type}", {price});'
     db.execute(sql)
     print('A performance is successfully inserted')
 
 
 def remove_performance(db):
     performance_id = int(input('Performance id: '))
-    check_sql = f'SELECT COUNT(*) AS count FROM performance WHERE id = {performance_id}'
-    count = db.fetch(check_sql)[0]['count']
-
-    if count == 0:
+    if performance_not_exists(db, performance_id):
         print(f"Performance {performance_id} doesn't exist")
         return
 
-    remove_sql = f'DELETE FROM performance WHERE id = {performance_id}'
+    remove_sql = f'DELETE FROM performance WHERE id = {performance_id};'
     db.execute(remove_sql)
     print('A performance is successfully removed')
+
+
+def performance_not_exists(db, performance_id):
+    check_sql = f'SELECT COUNT(*) AS count FROM performance WHERE id = {performance_id};'
+    count = db.fetch(check_sql)[0]['count']
+    if count == 0:
+        return True
+    return False
 
 
 def add_audience(db):
     name = input('Audience name: ')[:200]
     gender = input('Audience gender: ')[:200]
-    age = int(input('Audience age: '))
 
     if not (gender == 'M' or gender == 'F'):
         print("Gender should be 'M' or 'F'")
         return
+
+    age = int(input('Audience age: '))
     
     if age < 1:
         print('Age should be more than 0')
         return
 
-    sql = f'INSERT INTO audience (name, gender, age) values ("{name}", "{gender}", {age})'
+    sql = f'INSERT INTO audience (name, gender, age) values ("{name}", "{gender}", {age});'
     db.execute(sql)
     print('An audience is successfully inserted')
 
 
 def remove_audience(db):
     audience_id = int(input('Audience id: '))
-    check_sql = f'SELECT COUNT(*) AS count FROM audience WHERE id = {audience_id}'
-    count = db.fetch(check_sql)[0]['count']
-
-    if count == 0:
+    if audience_not_exists(db, audience_id):
         print(f"Audience {audience_id} doesn't exist")
         return
 
-    remove_sql = f'DELETE FROM audience WHERE id = {audience_id}'
+    remove_sql = f'DELETE FROM audience WHERE id = {audience_id};'
     db.execute(remove_sql)
     print('An audience is successfully removed')
 
 
+def audience_not_exists(db, audience_id):
+    check_sql = f'SELECT COUNT(*) AS count FROM audience WHERE id = {audience_id};'
+    count = db.fetch(check_sql)[0]['count']
+    if count == 0:
+        return True
+    return False
+
+
 def assign_performance(db):
     building_id = int(input('Building ID: '))
+    if buildig_not_exists(db, building_id):
+        print(f"Building {building_id} doesn't exist")
+        return
+
     performance_id = int(input('Performance ID: '))
+    if performance_not_exists(db, performance_id):
+        print(f"Performance {performance_id} doesn't exist")
+        return
+    
+    check_sql = f'SELECT COUNT(*) AS count FROM assign WHERE performance_id = {performance_id};'
+    count = db.fetch(check_sql)[0]['count']
+    if count > 0:
+        print(f'Performance {performance_id} is already assigned')
+        return
+    
+    insert_sql = f'INSERT INTO assign (building_id, performance_id) values ("{building_id}", "{performance_id}");'
+    db.execute(insert_sql)
+
     print('Successfully assign a performance')
 
 

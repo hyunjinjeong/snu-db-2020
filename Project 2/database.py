@@ -63,8 +63,8 @@ class Database:
                 );
             ''', '''
                 CREATE TABLE IF NOT EXISTS assign (
-                    performance_id INT PRIMARY KEY,
                     building_id INT NOT NULL,
+                    performance_id INT PRIMARY KEY,
                     CONSTRAINT `fk_assign_building`
                         FOREIGN KEY (building_id) REFERENCES building (id)
                         ON DELETE CASCADE
@@ -96,7 +96,7 @@ class Database:
     # reset 시 테이블의 모든 데이터 삭제
     def reset(self):
         with self.connection.cursor() as cursor:
-            sql = 'DROP TABLE building, performance, audience;'
+            sql = 'DROP TABLE book, assign, building, performance, audience;'
             cursor.execute(sql)
             self._initialize_database()
             self.connection.commit()
