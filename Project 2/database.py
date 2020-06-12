@@ -67,12 +67,10 @@ class Database:
                     performance_id INT PRIMARY KEY,
                     CONSTRAINT `fk_assign_building`
                         FOREIGN KEY (building_id) REFERENCES building (id)
-                        ON DELETE CASCADE
-                        ON UPDATE CASCADE,
+                        ON DELETE CASCADE,
                     CONSTRAINT `fk_assign_performance`
                         FOREIGN KEY (performance_id) REFERENCES performance (id)
                         ON DELETE CASCADE
-                        ON UPDATE CASCADE
                 );
             ''', '''
                 CREATE TABLE IF NOT EXISTS book (
@@ -82,12 +80,10 @@ class Database:
                     PRIMARY KEY (performance_id, seat_number),
                     CONSTRAINT `fk_book_performance`
                         FOREIGN KEY (performance_id) REFERENCES assign (performance_id)
-                        ON DELETE CASCADE
-                        ON UPDATE CASCADE,
+                        ON DELETE CASCADE,
                     CONSTRAINT `fk_book_audience`
                         FOREIGN KEY (audience_id) REFERENCES audience (id)
                         ON DELETE CASCADE
-                        ON UPDATE CASCADE
                 );
             ''', 'SET sql_notes = 1;']
             for sql in sqls:
